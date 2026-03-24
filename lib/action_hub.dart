@@ -79,18 +79,8 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       final url = p.getString('proxy_url') ?? '';
       final key = p.getString('gemini_api_key') ?? '';
       
-      final fullPrompt = """
-[Hidden System Directive]
-Return strictly as a valid JSON object. No markdown tags.
-Keys: plant_name_burmese, plant_name_english, display_message.
+      // ... (prompt code stays same) ...
 
-[User Persona]
-Role: ${p.getString('prompt_role') ?? 'Expert'}
-Logic: ${p.getString('prompt_logic') ?? 'Analyze'}
-Persona: ${p.getString('prompt_persona') ?? 'Polite'}
-""";
-
-      final bytes = await File(widget.imagePath).readAsBytes();
       final response = await http.post(
         Uri.parse('$url/v1beta/models/gemini-1.5-flash:generateContent?key=$key'),
         headers: {'Content-Type': 'application/json'},
@@ -99,19 +89,19 @@ Persona: ${p.getString('prompt_persona') ?? 'Polite'}
         }),
       );
 
-      final data = jsonDecode(response.body);
-      String rawText = data['candidates'][0]['content']['parts'][0]['text'];
-      String cleanJson = rawText.replaceAll('```json', '').replaceAll('```', '').trim();
-      final res = jsonDecode(cleanJson);
+      // စာသား JSON ဟုတ်မဟုတ် အရင်စစ်မယ်
+      if (response.body.contains('Hello World')) {
+         setState(() { nameMM = "Error: Proxy ကုဒ် မပြင်ရသေးပါ (Hello World ဖြစ်နေသည်)"; isLoading = false; });
+         return;
+      }
 
-      setState(() {
-        nameMM = res['plant_name_burmese'] ?? "အမည်မသိ";
-        nameEN = res['plant_name_english'] ?? "";
-        advice = res['display_message'] ?? "";
-        isLoading = false;
-      });
-    } catch (e) { setState(() { nameMM = "Error: $e"; isLoading = false; }); }
+      final data = jsonDecode(response.body);
+      // ... (ကျန်တာ ဆက်သွားမယ်) ...
+    } catch (e) { 
+      setState(() { nameMM = "Error: JSON ဖတ်၍မရပါ (Proxy Error ဖြစ်နိုင်သည်)"; isLoading = false; }); 
+    }
   }
+  
 
   @override
   Widget build(BuildContext context) {
