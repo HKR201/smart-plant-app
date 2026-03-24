@@ -34,7 +34,7 @@ class _SecretDoorScreenState extends State<SecretDoorScreen> {
       _proxyUrlController.text = prefs.getString('proxy_url') ?? 'https://my-gemini-proxy.youteshin-blog.workers.dev';
       
       _roleController.text = prefs.getString('prompt_role') ?? "မင်းက မြန်မာ့စိုက်ပျိုးရေးပညာရှင် တစ်ယောက်ပါ။";
-      _logicController.text = prefs.getString('prompt_logic') ?? "အပင်ကိုခွဲခြားပါ။ အိမ်ရှိပစ္စည်းစာရင်းကို ကြည့်ပြီး လိုအပ်မှသာ ရွေးချယ်အသုံးပြုပါ။ ပစ္စည်းအားလုံးကို အတင်းထည့်မစပ်ပါနဲ့။";
+      _logicController.text = prefs.getString('prompt_logic') ?? "အပင်ကိုခွဲခြားပါ။ အိမ်ရှိပစ္စည်းစာရင်းကို ကြည့်ပြီး လိုအပ်မှသာ ရွေးချယ်အသုံးပြုပါ။ အပင်နာမည်ကို မြန်မာလိုရော အင်္ဂလိပ်လိုပါ ရှာပေးပါ။";
       _personaController.text = prefs.getString('prompt_persona') ?? "လူကြီးတွေကို ပြောသလိုမျိုး ယဉ်ကျေးပျူငှာစွာ ရှင်းပြပေးပါ။";
       
       _isLoading = false;
