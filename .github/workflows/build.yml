@@ -1,31 +1,31 @@
 name: Manual Build APK
 
 on:
-  workflow_dispatch: # ဒီစာသားက Manual နှိပ်မှ Build ဖို့ ခွင့်ပြုတာပါ
+  workflow_dispatch: # Manual နှိပ်မှ Build ဖို့
 
 jobs:
   build:
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4 # အသစ်ဆုံး version
+      - uses: actions/checkout@v4
 
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'oracle'
+          distribution: 'zulu' # ပိုပြီး တည်ငြိမ်တဲ့ Zulu JDK ကို သုံးမယ်
           java-version: '17'
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable'
-          flutter-version-file: pubspec.yaml # pubspec ထဲက version အတိုင်း သုံးမယ်
+          channel: 'stable' # Version ကို ပုံသေမထားဘဲ အသစ်ဆုံး Stable ကို ယူခိုင်းလိုက်တာပါ
+          cache: true # နောက်တစ်ခါ Build ရင် ပိုမြန်အောင် Cache လုပ်ထားမယ်
 
       - name: Get Dependencies
         run: flutter pub get
 
       - name: Build APK
-        run: flutter build apk --release
+        run: flutter build apk --release --no-tree-shake-icons # Icon error မတက်အောင် ဒါလေး ထည့်ပေးထားတယ်
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
