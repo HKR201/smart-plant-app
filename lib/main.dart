@@ -28,9 +28,9 @@ class AppState extends ChangeNotifier {
   String location = 'ရန်ကုန်'; 
   String weatherTemp = '--°C';
   String weatherDesc = 'ရှာဖွေနေပါသည်...';
-  String aqiLevel = '--'; // AQI အဆင့်
-  String rainChance = '--%'; // မိုးရွာနိုင်ခြေ
-  List<Map<String, dynamic>> upcomingTasks = []; // သတိပေးချက်စာရင်း
+  String aqiLevel = '--'; 
+  String rainChance = '--%'; 
+  List<Map<String, dynamic>> upcomingTasks = []; 
 
   void toggleInventory(String item) {
     homeInventory[item] = !homeInventory[item]!;
@@ -55,7 +55,6 @@ class AppState extends ChangeNotifier {
     fetchWeather(); 
   }
 
-  // --- အဆင့်မြှင့်ထားသော မိုးလေဝသ လော့ဂျစ် ---
   Future<void> fetchWeather() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -72,7 +71,6 @@ class AppState extends ChangeNotifier {
       };
       final queryCity = cityMap[location] ?? 'Yangon';
 
-      // ၁။ ရိုးရိုး မိုးလေဝသ ယူခြင်း
       final url = Uri.parse('https://api.openweathermap.org/data/2.5/weather?q=$queryCity&appid=$weatherKey&units=metric');
       final response = await http.get(url);
 
@@ -84,7 +82,6 @@ class AppState extends ChangeNotifier {
         weatherDesc = _translateWeather(data['weather'][0]['main']);
         rainChance = data['rain'] != null ? '${data['rain']['1h'] ?? 10}%' : '0%';
 
-        // ၂။ AQI (လေထုအရည်အသွေး) ထပ်ယူခြင်း
         final aqiUrl = Uri.parse('https://api.openweathermap.org/data/2.5/air_pollution?lat=$lat&lon=$lon&appid=$weatherKey');
         final aqiResponse = await http.get(aqiUrl);
         if (aqiResponse.statusCode == 200) {
@@ -117,14 +114,12 @@ class AppState extends ChangeNotifier {
     }
   }
 
-  // --- သတိပေးချက် (Reminders) လော့ဂျစ် ---
   Future<void> loadReminders() async {
     final plants = await DatabaseHelper.instance.getPlants();
     upcomingTasks = [];
     final now = DateTime.now();
 
     for (var plant in plants) {
-      // သိမ်းထားတဲ့ရက်ကနေ ၃ ရက်ကျော်ရင် ရေလောင်းဖို့ သတိပေးမယ် (ရိုးရှင်းသော လော့ဂျစ်)
       final saveDate = DateTime.parse(plant['saveDate']);
       final diff = now.difference(saveDate).inDays;
       if (diff >= 3) {
@@ -203,13 +198,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
             Text(_getGreeting(), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green)),
             const SizedBox(height: 15),
             
-            // --- Advanced Weather Widget ---
             Container(
               padding: const EdgeInsets.all(20),
               decoration: BoxDecoration(
                 color: Colors.white,
                 borderRadius: BorderRadius.circular(20),
-                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, spreadRadius: 2)],
+                boxShadow: const [BoxShadow(color: Colors.black12, blurRadius: 10, spreadRadius: 2)],
               ),
               child: Column(
                 children: [
@@ -239,7 +233,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 20),
 
-            // --- Smart Reminders Area ---
             const Text('လုပ်ဆောင်ရန်များ', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
             if (state.upcomingTasks.isEmpty)
@@ -326,6 +319,7 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }),
           _drawerItem(Icons.inventory_2, '📦 အိမ်ရှိပစ္စည်းစာရင်း', 'ပစ္စည်းများ ထည့်သွင်းရန်', () {
             Navigator.pop(context);
+            // ပြင်ဆင်ချက်: const ကို ဖြုတ်လိုက်ပါပြီ
             Navigator.push(context, MaterialPageRoute(builder: (context) => const InventoryScreen()));
           }),
           _drawerItem(Icons.book, 'မှတ်သားထားသော အကြံဉာဏ်များ', 'ယခင်မှတ်တမ်းများ', () {
@@ -363,6 +357,88 @@ class _DashboardScreenState extends State<DashboardScreen> {
           )).toList(),
         ),
       ),
+    );
+  }
+}
+
+class InventoryScreen extends StatelessWidget {
+  const InventoryScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final TextEditingController textController = TextEditingController();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('အိမ်ရှိပစ္စည်းများ', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.brown[600],
+        foregroundColor: Colors.white,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: state.homeInventory.keys.map((String key) {
+          return Card(
+            elevation: 2,
+            margin: const EdgeInsets.symmetric(vertical: 8.0),
+            child: CheckboxListTile(
+              title: Text(key, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+              value: state.homeInventory[key],
+              onChanged: (bool? value) {
+                context.read<AppState>().toggleInventory(key);
+              },
+              activeColor: Colors.green,
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: const EdgeInsets.all(8.0),
+              secondary: IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red, size: 35),
+                onPressed: () {
+                  state.removeInventoryItem(key);
+                },
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          _showAddItemDialog(context, textController);
+        },
+        backgroundColor: Colors.green[700],
+        icon: const Icon(Icons.add, size: 35, color: Colors.white),
+        label: const Text('အသစ်ထည့်မည်', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+      ),
+    );
+  }
+
+  void _showAddItemDialog(BuildContext context, TextEditingController controller) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('ပစ္စည်းအသစ် ထည့်ရန်', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+          content: TextField(
+            controller: controller,
+            style: const TextStyle(fontSize: 26),
+            decoration: const InputDecoration(hintText: 'ဥပမာ - နွားချေး', hintStyle: TextStyle(fontSize: 24)),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('မလုပ်တော့ပါ', style: TextStyle(fontSize: 24, color: Colors.red)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                context.read<AppState>().addInventoryItem(controller.text);
+                controller.clear();
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              child: const Text('ထည့်မည်', style: TextStyle(fontSize: 24, color: Colors.white)),
+            ),
+          ],
+        );
+      },
     );
   }
 }
