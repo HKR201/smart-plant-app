@@ -1,48 +1,35 @@
-name: Manual Flutter APK Build
+name: Manual Build APK
 
 on:
-  workflow_dispatch:
+  workflow_dispatch: # ဒီစာသားက Manual နှိပ်မှ Build ဖို့ ခွင့်ပြုတာပါ
 
 jobs:
   build:
     runs-on: ubuntu-latest
-
     steps:
-      - name: ကိုယ့်ရဲ့ Code တွေကို စက်ရုံထဲ ဆွဲယူခြင်း
-        uses: actions/checkout@v4
+      - uses: actions/checkout@v4 # အသစ်ဆုံး version
 
-      - name: Android အတွက် Java ထည့်သွင်းခြင်း
-        uses: actions/setup-java@v3
+      - name: Set up Java
+        uses: actions/setup-java@v4
         with:
-          distribution: 'zulu'
+          distribution: 'oracle'
           java-version: '17'
 
-      - name: Flutter နည်းပညာ ထည့်သွင်းခြင်း
+      - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
           channel: 'stable'
+          flutter-version-file: pubspec.yaml # pubspec ထဲက version အတိုင်း သုံးမယ်
 
-      - name: Android အခွံများကို အလိုအလျောက် ဖန်တီးခြင်း နှင့် Permission ထည့်ခြင်း
-        run: |
-          mkdir -p temp_backup
-          cp -r lib temp_backup/
-          cp pubspec.yaml temp_backup/pubspec.yaml
-          flutter create --platforms android --project-name smart_plant_app .
-          cp -r temp_backup/lib/* lib/
-          cp temp_backup/pubspec.yaml pubspec.yaml
-          
-          # AI အတွက် အင်တာနက်နှင့် ကင်မရာ အသုံးပြုခွင့်ကို စက်ရုံမှ အလိုအလျောက် ထည့်သွင်းပေးခြင်း
-          sed -i '/<manifest/a \    <uses-permission android:name="android.permission.INTERNET"/>\n    <uses-permission android:name="android.permission.CAMERA"/>' android/app/src/main/AndroidManifest.xml
-
-      - name: လိုအပ်တဲ့ ဖိုင်တွေ ဒေါင်းလုဒ်ဆွဲခြင်း
+      - name: Get Dependencies
         run: flutter pub get
 
-      - name: APK ဖိုင် အဖြစ် ပြောင်းလဲထုတ်လုပ်ခြင်း
+      - name: Build APK
         run: flutter build apk --release
 
-      - name: ထွက်လာတဲ့ APK ကို ဒေါင်းလုဒ်ဆွဲလို့ရအောင် တင်ပေးခြင်း
+      - name: Upload APK
         uses: actions/upload-artifact@v4
         with:
-          name: Smart-Plant-App-APK
+          name: smart-plant-release-apk
           path: build/app/outputs/flutter-apk/app-release.apk
           
