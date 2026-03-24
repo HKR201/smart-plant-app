@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-// ဖိုင်များကို ချိတ်ဆက်ခြင်း
+// တခြားဖိုင်များကို Import လုပ်ခြင်း
 import 'action_hub.dart'; 
 import 'gallery_screen.dart'; 
 import 'secret_door.dart'; 
@@ -125,7 +125,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
   Widget build(BuildContext context) {
     final state = context.watch<AppState>();
     return Scaffold(
-      appBar: AppBar(title: const Text('အပင်စောင့်ရှောက်ရေး'), backgroundColor: Colors.green[800], foregroundColor: Colors.white),
+      appBar: AppBar(
+        title: const Text('အပင်စောင့်ရှောက်ရေး'), 
+        backgroundColor: Colors.green[800], 
+        foregroundColor: Colors.white
+      ),
       drawer: _buildDrawer(context, state),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
@@ -146,19 +150,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
             ),
             const SizedBox(height: 20),
             ElevatedButton(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CameraScreen())),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => CameraScreen())),
               style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20), backgroundColor: Colors.green),
               child: const Text('📷 ဓာတ်ပုံရိုက်မည်', style: TextStyle(fontSize: 22, color: Colors.white)),
             ),
             const SizedBox(height: 10),
             ElevatedButton(
-              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const GalleryScreen())),
+              onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => GalleryScreen())),
               style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20), backgroundColor: Colors.orange),
               child: const Text('🖼️ ဓာတ်ပုံပြခန်း', style: TextStyle(fontSize: 22, color: Colors.white)),
             ),
-            const SizedBox(height: 20),
+            const SizedBox(height: 30),
             GestureDetector(
-              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SecretDoorScreen())),
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => SecretDoorScreen())),
               child: const Center(child: Text('Version 1.1.0', style: TextStyle(color: Colors.grey))),
             ),
           ],
@@ -171,16 +175,19 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Drawer(
       child: ListView(
         children: [
-          const DrawerHeader(decoration: BoxDecoration(color: Colors.green), child: Text('မီနူး', style: TextStyle(color: Colors.white, fontSize: 24))),
+          const DrawerHeader(
+            decoration: BoxDecoration(color: Colors.green), 
+            child: Text('မီနူး', style: TextStyle(color: Colors.white, fontSize: 24))
+          ),
           ListTile(
             leading: const Icon(Icons.inventory), 
             title: const Text('အိမ်ရှိပစ္စည်းစာရင်း'), 
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const InventoryScreen()))
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => InventoryScreen()))
           ),
           ListTile(
             leading: const Icon(Icons.book), 
             title: const Text('အကြံဉာဏ်များ'), 
-            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CareLogsScreen()))
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => CareLogsScreen()))
           ),
         ],
       ),
