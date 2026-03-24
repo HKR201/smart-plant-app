@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 import 'action_hub.dart'; 
-import 'gallery_screen.dart'; // ပြခန်းစာမျက်နှာကို လှမ်းချိတ်ခြင်း
+import 'gallery_screen.dart'; 
+import 'secret_door.dart'; // လျှို့ဝှက်တံခါးကို လှမ်းချိတ်ခြင်း
 
 void main() {
   runApp(
@@ -48,16 +49,12 @@ class AppState extends ChangeNotifier {
     notifyListeners();
   }
 
+  // Version ကို ၅ ခါနှိပ်လျှင် လျှို့ဝှက်တံခါး ဖွင့်မည့် လော့ဂျစ်
   void incrementSecretTap(BuildContext context) {
     secretTapCount++;
     if (secretTapCount >= 5) {
-      secretTapCount = 0;
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-          content: Text('🔒 လျှို့ဝှက်ဆက်တင်များ ပွင့်ပါပြီ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-          backgroundColor: Colors.black87,
-        ),
-      );
+      secretTapCount = 0; // ပြန်လည်စတင်မည်
+      Navigator.push(context, MaterialPageRoute(builder: (context) => const SecretDoorScreen()));
     }
   }
 }
@@ -151,8 +148,6 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 15),
-            
-            // 🖼️ ပြခန်းခလုတ်ကို ချိတ်ဆက်လိုက်ပါပြီ
             ElevatedButton.icon(
               onPressed: () {
                 Navigator.push(context, MaterialPageRoute(builder: (context) => const GalleryScreen()));
