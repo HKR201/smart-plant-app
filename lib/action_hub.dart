@@ -123,6 +123,24 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     _identifyPlant(); 
   }
 
+  // ⚠️ Error လုံးဝကင်းစေရန် အဆင့်ဆင့် ခေါ်မည့် (Fallback) လော့ဂျစ်
+  Future<GenerateContentResponse> _callGeminiAPI(String apiKey, String promptText) async {
+    final bytes = await File(widget.imagePath).readAsBytes();
+    final prompt = TextPart(promptText);
+    final imagePart = DataPart('image/jpeg', bytes);
+    final content = [Content.multi([prompt, imagePart])];
+
+    try {
+      // ၁။ ပထမဆုံး အသစ်ဆုံးမော်ဒယ် (gemini-1.5-flash-latest) ဖြင့် စမ်းမည်
+      final model = GenerativeModel(model: 'gemini-1.5-flash-latest', apiKey: apiKey);
+      return await model.generateContent(content);
+    } catch (e) {
+      // ၂။ အကယ်၍ API Key က အသစ်ကို လက်မခံရင် အသေချာဆုံး အဟောင်းဗားရှင်း (gemini-pro-vision) ကို အလိုအလျောက် ပြောင်းသုံးမည်
+      final backupModel = GenerativeModel(model: 'gemini-pro-vision', apiKey: apiKey);
+      return await backupModel.generateContent(content);
+    }
+  }
+
   Future<void> _identifyPlant() async {
     try {
       final prefs = await SharedPreferences.getInstance();
@@ -138,22 +156,13 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         return;
       }
 
-      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
-      final bytes = await File(widget.imagePath).readAsBytes();
-      
-      final prompt = TextPart(systemPrompt);
-      final imagePart = DataPart('image/jpeg', bytes);
-
-      final response = await model.generateContent([
-        Content.multi([prompt, imagePart])
-      ]);
+      final response = await _callGeminiAPI(apiKey, systemPrompt);
 
       setState(() {
         plantName = response.text?.trim() ?? "အမည်မသိအပင် - အခြားအပင်များ";
         isLoading = false;
       });
     } catch (e) {
-      // ⚠️ ပြင်ဆင်ချက်: Error အစစ်ကို ပြသမည်
       setState(() {
         plantName = "Error: $e"; 
         isLoading = false;
@@ -186,22 +195,15 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
           .toList()
           .join(", ");
 
-      final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
-      final bytes = await File(widget.imagePath).readAsBytes();
+      final promptText = "The plant is $plantName. The user has these items available at home: $availableItems. Give simple soil mixing and plant care advice in Burmese using ONLY these available items. Make the explanation very simple and easy to read for an elderly person. No markdown formatting like ** or *.";
       
-      final prompt = TextPart("The plant is $plantName. The user has these items available at home: $availableItems. Give simple soil mixing and plant care advice in Burmese using ONLY these available items. Make the explanation very simple and easy to read for an elderly person. No markdown formatting like ** or *.");
-      final imagePart = DataPart('image/jpeg', bytes);
-
-      final response = await model.generateContent([
-        Content.multi([prompt, imagePart])
-      ]);
+      final response = await _callGeminiAPI(apiKey, promptText);
 
       setState(() {
         aiAdvice = response.text?.trim() ?? "အကြံဉာဏ် မရရှိပါ";
         isAdviceLoading = false;
       });
     } catch (e) {
-      // ⚠️ ပြင်ဆင်ချက်: Error အစစ်ကို ပြသမည်
       setState(() {
         aiAdvice = "Advice Error: $e";
         isAdviceLoading = false;
@@ -243,10 +245,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   child: isLoading 
                     ? const CircularProgressIndicator(color: Colors.green)
                     : Text(
-                        // Error ဖြစ်နေရင် Error စာသားအပြည့်ကို ပြမည်
                         plantName.contains("Error") ? plantName : plantName.split('-')[0].trim(), 
                         style: TextStyle(
-                          fontSize: plantName.contains("Error") ? 18 : 32, // Error ဆိုရင် စာလုံးနည်းနည်းသေးမည်
+                          fontSize: plantName.contains("Error") ? 18 : 32, 
                           fontWeight: FontWeight.bold, 
                           color: plantName.contains("Error") ? Colors.red : Colors.green
                         ),
