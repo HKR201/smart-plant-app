@@ -125,7 +125,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   Future<void> _identifyPlant() async {
     try {
-      // Secret Door ထဲက API Key နှင့် Prompt ကို လှမ်းယူခြင်း
       final prefs = await SharedPreferences.getInstance();
       final apiKey = prefs.getString('gemini_api_key') ?? '';
       final systemPrompt = prefs.getString('system_prompt') ?? 
@@ -154,8 +153,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         isLoading = false;
       });
     } catch (e) {
+      // ⚠️ ပြင်ဆင်ချက်: Error အစစ်ကို ပြသမည်
       setState(() {
-        plantName = "ရှာဖွေ၍မရပါ (အင်တာနက် သို့မဟုတ် API Key မှားယွင်းနေပါသည်)";
+        plantName = "Error: $e"; 
         isLoading = false;
       });
     }
@@ -201,8 +201,9 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
         isAdviceLoading = false;
       });
     } catch (e) {
+      // ⚠️ ပြင်ဆင်ချက်: Error အစစ်ကို ပြသမည်
       setState(() {
-        aiAdvice = "အကြံဉာဏ် ရယူ၍မရပါ (အင်တာနက် သို့မဟုတ် API Key ကို စစ်ဆေးပါ)";
+        aiAdvice = "Advice Error: $e";
         isAdviceLoading = false;
       });
     }
@@ -242,8 +243,13 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   child: isLoading 
                     ? const CircularProgressIndicator(color: Colors.green)
                     : Text(
-                        plantName.split('-')[0].trim(), 
-                        style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.green),
+                        // Error ဖြစ်နေရင် Error စာသားအပြည့်ကို ပြမည်
+                        plantName.contains("Error") ? plantName : plantName.split('-')[0].trim(), 
+                        style: TextStyle(
+                          fontSize: plantName.contains("Error") ? 18 : 32, // Error ဆိုရင် စာလုံးနည်းနည်းသေးမည်
+                          fontWeight: FontWeight.bold, 
+                          color: plantName.contains("Error") ? Colors.red : Colors.green
+                        ),
                         textAlign: TextAlign.center,
                       ),
                 ),
