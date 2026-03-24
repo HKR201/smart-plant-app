@@ -1,7 +1,7 @@
 name: Manual Build APK
 
 on:
-  workflow_dispatch: # Manual နှိပ်မှ Build ဖို့
+  workflow_dispatch:
 
 jobs:
   build:
@@ -12,20 +12,26 @@ jobs:
       - name: Set up Java
         uses: actions/setup-java@v4
         with:
-          distribution: 'zulu' # ပိုပြီး တည်ငြိမ်တဲ့ Zulu JDK ကို သုံးမယ်
+          distribution: 'zulu'
           java-version: '17'
 
       - name: Set up Flutter
         uses: subosito/flutter-action@v2
         with:
-          channel: 'stable' # Version ကို ပုံသေမထားဘဲ အသစ်ဆုံး Stable ကို ယူခိုင်းလိုက်တာပါ
-          cache: true # နောက်တစ်ခါ Build ရင် ပိုမြန်အောင် Cache လုပ်ထားမယ်
+          channel: 'stable'
+          cache: true
+
+      # --- ဒီအဆင့်က အဓိကပါ ---
+      - name: Reconstruct Android Project
+        run: |
+          flutter create . --platforms android --org com.smartplant.app
+          # ရှိပြီးသား ဖိုင်တွေ မပျက်အောင် platform ဆောက်ခိုင်းလိုက်တာပါ
 
       - name: Get Dependencies
         run: flutter pub get
 
       - name: Build APK
-        run: flutter build apk --release --no-tree-shake-icons # Icon error မတက်အောင် ဒါလေး ထည့်ပေးထားတယ်
+        run: flutter build apk --release --no-tree-shake-icons
 
       - name: Upload APK
         uses: actions/upload-artifact@v4
