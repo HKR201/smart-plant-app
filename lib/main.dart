@@ -258,13 +258,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             const SizedBox(height: 20),
             _actionButton(context, '📷 ဓာတ်ပုံရိုက်မည်', Colors.green[600]!, () {
-              // Fix: const keyword removed
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const CameraScreen()));
+              // Fix: Removed 'const' to avoid build error
+              Navigator.push(context, MaterialPageRoute(builder: (context) => CameraScreen()));
             }),
             const SizedBox(height: 15),
             _actionButton(context, '🖼️ ဓာတ်ပုံပြခန်း', Colors.orange[600]!, () {
-              // Fix: const keyword removed
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const GalleryScreen()));
+              // Fix: Removed 'const' to avoid build error
+              Navigator.push(context, MaterialPageRoute(builder: (context) => GalleryScreen()));
             }),
             
             const SizedBox(height: 20),
@@ -324,13 +324,13 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }),
           _drawerItem(Icons.inventory_2, '📦 အိမ်ရှိပစ္စည်းစာရင်း', 'ပစ္စည်းများ ထည့်သွင်းရန်', () {
             Navigator.pop(context);
-            // Fix: const keyword removed
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const InventoryScreen()));
+            // Fix: Removed 'const' to avoid build error
+            Navigator.push(context, MaterialPageRoute(builder: (context) => InventoryScreen()));
           }),
           _drawerItem(Icons.book, 'မှတ်သားထားသော အကြံဉာဏ်များ', 'ယခင်မှတ်တမ်းများ', () {
             Navigator.pop(context);
-            // Fix: const keyword removed
-            Navigator.push(context, MaterialPageRoute(builder: (context) => const CareLogsScreen()));
+            // Fix: Removed 'const' to avoid build error
+            Navigator.push(context, MaterialPageRoute(builder: (context) => CareLogsScreen()));
           }),
         ],
       ),
