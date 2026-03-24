@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'action_hub.dart'; // ကင်မရာစာမျက်နှာကို လှမ်းချိတ်ခြင်း
 
 void main() {
   runApp(
@@ -158,6 +159,12 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 15),
             ElevatedButton.icon(
               onPressed: () {
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CameraScreen()),
+                );
+              },
+              
                 // မကြာမီ ထည့်သွင်းမည့် ပြခန်း
               },
               icon: const Icon(Icons.photo_library, size: 40),
