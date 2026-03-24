@@ -123,7 +123,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     _identifyPlant(); 
   }
 
-  // ⚠️ Error လုံးဝကင်းစေရန် အဆင့်ဆင့် ခေါ်မည့် (Fallback) လော့ဂျစ်
+  // ⚠️ ပြင်ဆင်ချက်: Google ၏ နောက်ဆုံးပေါ် မော်ဒယ်အသစ်များ (2.5 နှင့် 2.0) ကို ပြောင်းလဲအသုံးပြုထားခြင်း
   Future<GenerateContentResponse> _callGeminiAPI(String apiKey, String promptText) async {
     final bytes = await File(widget.imagePath).readAsBytes();
     final prompt = TextPart(promptText);
@@ -131,12 +131,12 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     final content = [Content.multi([prompt, imagePart])];
 
     try {
-      // ၁။ ပထမဆုံး အသစ်ဆုံးမော်ဒယ် (gemini-1.5-flash-latest) ဖြင့် စမ်းမည်
-      final model = GenerativeModel(model: 'gemini-1.5-flash-latest', apiKey: apiKey);
+      // ၁။ အသစ်ဆုံး မော်ဒယ် (gemini-2.5-flash) ကို အရင်စမ်းမည်
+      final model = GenerativeModel(model: 'gemini-2.5-flash', apiKey: apiKey);
       return await model.generateContent(content);
     } catch (e) {
-      // ၂။ အကယ်၍ API Key က အသစ်ကို လက်မခံရင် အသေချာဆုံး အဟောင်းဗားရှင်း (gemini-pro-vision) ကို အလိုအလျောက် ပြောင်းသုံးမည်
-      final backupModel = GenerativeModel(model: 'gemini-pro-vision', apiKey: apiKey);
+      // ၂။ အကယ်၍ မရခဲ့ရင် ဒုတိယအသစ် (gemini-2.0-flash) ကို ပြောင်းသုံးမည်
+      final backupModel = GenerativeModel(model: 'gemini-2.0-flash', apiKey: apiKey);
       return await backupModel.generateContent(content);
     }
   }
