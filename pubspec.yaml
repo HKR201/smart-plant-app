@@ -15,6 +15,7 @@ dependencies:
   sqflite: ^2.3.2
   path: ^1.9.0
   intl: ^0.19.0
+  image_picker: ^1.0.7 # ကင်မရာအတွက် ဒါလေးအသစ်ထည့်ထားပါတယ်
 
 flutter:
   uses-material-design: true
