@@ -12,9 +12,8 @@ void main() {
   );
 }
 
-// အက်ပ်တစ်ခုလုံးရဲ့ မှတ်ဉာဏ်ထိန်းချုပ်မည့်နေရာ (State Management)
+// အက်ပ်တစ်ခုလုံးရဲ့ မှတ်ဉာဏ်
 class AppState extends ChangeNotifier {
-  // အိမ်ရှိပစ္စည်းများ (Inventory) မှတ်သားထားရန်
   Map<String, bool> homeInventory = {
     'မီးသွေး': false,
     'အုတ်မှုန့်': false,
@@ -23,11 +22,26 @@ class AppState extends ChangeNotifier {
     'သဲ': false,
   };
 
-  String location = 'ရန်ကုန်'; // မိုးလေဝသအတွက် မြို့အမည်
-  int secretTapCount = 0; // လျှို့ဝှက်တံခါးအတွက် အကြိမ်အရေအတွက်
+  String location = 'ရန်ကုန်'; 
+  int secretTapCount = 0; 
 
+  // ပစ္စည်း အမှန်ခြစ် အတိုး/အလျှော့
   void toggleInventory(String item) {
     homeInventory[item] = !homeInventory[item]!;
+    notifyListeners();
+  }
+
+  // ပစ္စည်း အသစ်ထည့်ရန်
+  void addInventoryItem(String item) {
+    if (item.isNotEmpty && !homeInventory.containsKey(item)) {
+      homeInventory[item] = true; // အသစ်ထည့်ရင် အလိုအလျောက် အမှန်ခြစ်ထားပေးမည်
+      notifyListeners();
+    }
+  }
+
+  // ပစ္စည်း ဖျက်ရန်
+  void removeInventoryItem(String item) {
+    homeInventory.remove(item);
     notifyListeners();
   }
 
@@ -40,7 +54,6 @@ class AppState extends ChangeNotifier {
     secretTapCount++;
     if (secretTapCount >= 5) {
       secretTapCount = 0;
-      // လျှို့ဝှက်တံခါးပွင့်ကြောင်း ပြသခြင်း (Admin စာမျက်နှာကို နောက်ပိုင်းချိတ်ဆက်မည်)
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
           content: Text('🔒 လျှို့ဝှက်ဆက်တင်များ ပွင့်ပါပြီ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
@@ -61,7 +74,7 @@ class SmartPlantApp extends StatelessWidget {
       title: 'Smart Plant Care',
       theme: ThemeData(
         primarySwatch: Colors.green,
-        scaffoldBackgroundColor: const Color(0xFFE8F5E9), // မျက်စိရှင်းသော အစိမ်းနုရောင် နောက်ခံ
+        scaffoldBackgroundColor: const Color(0xFFE8F5E9), 
         textTheme: const TextTheme(
           bodyLarge: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
           bodyMedium: TextStyle(fontSize: 24, color: Colors.black87),
@@ -73,7 +86,9 @@ class SmartPlantApp extends StatelessWidget {
   }
 }
 
+// ---------------------------------------------------------
 // ပင်မ စာမျက်နှာ (Dashboard)
+// ---------------------------------------------------------
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
@@ -93,7 +108,6 @@ class DashboardScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // အပေါ်ပိုင်း - မိုးလေဝသ နှင့် အကြံပြုချက်
             Card(
               color: Colors.white,
               elevation: 4,
@@ -110,8 +124,6 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-
-            // အလယ်ပိုင်း - သတိပေးချက်များ
             Expanded(
               child: Card(
                 color: Colors.lightBlue[50],
@@ -130,11 +142,9 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-
-            // အောက်ပိုင်း - အသုံးပြုရလွယ်ကူသော ခလုတ်ကြီးများ
             ElevatedButton.icon(
               onPressed: () {
-                // ကင်မရာစာမျက်နှာသို့ သွားရန် (Action Hub)
+                // မကြာမီ ထည့်သွင်းမည့် ကင်မရာ စာမျက်နှာ
               },
               icon: const Icon(Icons.camera_alt, size: 40),
               label: const Text('📷 ဓာတ်ပုံရိုက်မည်', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
@@ -148,7 +158,7 @@ class DashboardScreen extends StatelessWidget {
             const SizedBox(height: 15),
             ElevatedButton.icon(
               onPressed: () {
-                // ပြခန်းစာမျက်နှာသို့ သွားရန် (Gallery)
+                // မကြာမီ ထည့်သွင်းမည့် ပြခန်း
               },
               icon: const Icon(Icons.photo_library, size: 40),
               label: const Text('🖼️ ဓာတ်ပုံပြခန်း', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
@@ -160,8 +170,6 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 10),
-            
-            // လျှို့ဝှက်တံခါး ဖွင့်ရန် နေရာ (Version Text)
             GestureDetector(
               onTap: () => context.read<AppState>().incrementSecretTap(context),
               child: const Center(
@@ -177,7 +185,6 @@ class DashboardScreen extends StatelessWidget {
     );
   }
 
-  // ဘေးတိုက်ဆွဲထုတ်နိုင်သော မီနူး (Drawer)
   Widget _buildDrawer(BuildContext context, AppState state) {
     return Drawer(
       child: ListView(
@@ -191,27 +198,18 @@ class DashboardScreen extends StatelessWidget {
             leading: const Icon(Icons.location_on, size: 35),
             title: const Text('မြို့နယ်ရွေးရန်', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             subtitle: Text(state.location, style: const TextStyle(fontSize: 20, color: Colors.blueGrey)),
-            onTap: () {
-              // မြို့ပြောင်းရန် (နောက်ပိုင်းထည့်မည်)
-            },
+            onTap: () {},
           ),
           const Divider(thickness: 2),
-          const Padding(
-            padding: EdgeInsets.all(16.0),
-            child: Text('📦 အိမ်ရှိပစ္စည်းစာရင်း', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+          // ပစ္စည်းစာရင်းကို အထဲမှာ ဝင်ကြည့်ရအောင် ပြင်ဆင်ထားခြင်း
+          ListTile(
+            leading: const Icon(Icons.inventory_2, size: 35, color: Colors.brown),
+            title: const Text('📦 အိမ်ရှိပစ္စည်းစာရင်း', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+            onTap: () {
+              Navigator.pop(context); // Drawer ကို အရင်ပိတ်မည်
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const InventoryScreen()));
+            },
           ),
-          ...state.homeInventory.keys.map((String key) {
-            return CheckboxListTile(
-              title: Text(key, style: const TextStyle(fontSize: 24)),
-              value: state.homeInventory[key],
-              onChanged: (bool? value) {
-                context.read<AppState>().toggleInventory(key);
-              },
-              activeColor: Colors.green,
-              controlAffinity: ListTileControlAffinity.leading,
-              contentPadding: const EdgeInsets.symmetric(horizontal: 16.0, vertical: 4.0),
-            );
-          }),
           const Divider(thickness: 2),
           ListTile(
             leading: const Icon(Icons.book, size: 35, color: Colors.blue),
@@ -225,6 +223,94 @@ class DashboardScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+// ---------------------------------------------------------
+// သီးသန့် အိမ်ရှိပစ္စည်းစာရင်း စာမျက်နှာ (အသစ်/အဖျက် လုပ်နိုင်သည်)
+// ---------------------------------------------------------
+class InventoryScreen extends StatelessWidget {
+  const InventoryScreen({super.key});
+
+  @override
+  Widget build(BuildContext context) {
+    final state = context.watch<AppState>();
+    final TextEditingController textController = TextEditingController();
+
+    return Scaffold(
+      appBar: AppBar(
+        title: const Text('အိမ်ရှိပစ္စည်းများ', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+        backgroundColor: Colors.brown[600],
+        foregroundColor: Colors.white,
+      ),
+      body: ListView(
+        padding: const EdgeInsets.all(16.0),
+        children: state.homeInventory.keys.map((String key) {
+          return Card(
+            elevation: 2,
+            margin: const EdgeInsets.symmetric(vertical: 8.0),
+            child: CheckboxListTile(
+              title: Text(key, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+              value: state.homeInventory[key],
+              onChanged: (bool? value) {
+                context.read<AppState>().toggleInventory(key);
+              },
+              activeColor: Colors.green,
+              controlAffinity: ListTileControlAffinity.leading,
+              contentPadding: const EdgeInsets.all(8.0),
+              secondary: IconButton(
+                icon: const Icon(Icons.delete, color: Colors.red, size: 35),
+                onPressed: () {
+                  context.read<AppState>().removeInventoryItem(key);
+                },
+              ),
+            ),
+          );
+        }).toList(),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        onPressed: () {
+          _showAddItemDialog(context, textController);
+        },
+        backgroundColor: Colors.green[700],
+        icon: const Icon(Icons.add, size: 35, color: Colors.white),
+        label: const Text('အသစ်ထည့်မည်', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
+      ),
+    );
+  }
+
+  void _showAddItemDialog(BuildContext context, TextEditingController controller) {
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('ပစ္စည်းအသစ် ထည့်ရန်', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+          content: TextField(
+            controller: controller,
+            style: const TextStyle(fontSize: 26),
+            decoration: const InputDecoration(
+              hintText: 'ဥပမာ - နွားချေး',
+              hintStyle: TextStyle(fontSize: 24),
+            ),
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(context),
+              child: const Text('မလုပ်တော့ပါ', style: TextStyle(fontSize: 24, color: Colors.red)),
+            ),
+            ElevatedButton(
+              onPressed: () {
+                context.read<AppState>().addInventoryItem(controller.text);
+                controller.clear();
+                Navigator.pop(context);
+              },
+              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
+              child: const Text('ထည့်မည်', style: TextStyle(fontSize: 24, color: Colors.white)),
+            ),
+          ],
+        );
+      },
     );
   }
 }
