@@ -21,11 +21,13 @@ jobs:
           channel: 'stable'
           cache: true
 
-      # --- ဒီအဆင့်က အဓိကပါ ---
-      - name: Reconstruct Android Project
+      - name: Reconstruct Android Project & Add Permissions
         run: |
+          # Android Project ကို အလိုအလျောက် ဆောက်မယ်
           flutter create . --platforms android --org com.smartplant.app
-          # ရှိပြီးသား ဖိုင်တွေ မပျက်အောင် platform ဆောက်ခိုင်းလိုက်တာပါ
+          
+          # အင်တာနက် သုံးခွင့် (Internet Permission) ကို AndroidManifest.xml ထဲကို အလိုအလျောက် ထည့်ပေးမယ့် စက်ရုပ် အမိန့်
+          sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
       - name: Get Dependencies
         run: flutter pub get
