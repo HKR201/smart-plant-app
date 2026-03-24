@@ -4,8 +4,9 @@ import 'package:camera/camera.dart';
 import 'package:google_generative_ai/google_generative_ai.dart';
 import 'package:provider/provider.dart';
 import 'package:path_provider/path_provider.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'main.dart'; 
-import 'database_helper.dart'; // Database ကို လှမ်းချိတ်ခြင်း
+import 'database_helper.dart'; 
 
 class CameraScreen extends StatefulWidget {
   const CameraScreen({super.key});
@@ -116,9 +117,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   bool isLoading = true;
   bool isAdviceLoading = false;
 
-  // ⚠️ ဒီနေရာမှာ သင့်ရဲ့ AI API Key အစစ်ကို ထည့်ပါ။ 
-  final String apiKey = "AIzaSyDr2BfqfxlUVlUEWlnfFUkLtGcfmVjuMWw"; 
-
   @override
   void initState() {
     super.initState();
@@ -127,10 +125,24 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
 
   Future<void> _identifyPlant() async {
     try {
+      // Secret Door ထဲက API Key နှင့် Prompt ကို လှမ်းယူခြင်း
+      final prefs = await SharedPreferences.getInstance();
+      final apiKey = prefs.getString('gemini_api_key') ?? '';
+      final systemPrompt = prefs.getString('system_prompt') ?? 
+          "This is an image of a plant. Return only the common Burmese name and its broader category in Burmese format like 'နာမည် - အမျိုးအစား' (e.g., သစ်ခွ - ပန်းပွင့်သောအပင်). Do not include any other text, explanations, or markdown.";
+
+      if (apiKey.isEmpty) {
+        setState(() {
+          plantName = "⚠️ API Key မထည့်ရသေးပါ (Admin ဆက်တင်တွင် သွားထည့်ပါ)";
+          isLoading = false;
+        });
+        return;
+      }
+
       final model = GenerativeModel(model: 'gemini-1.5-flash', apiKey: apiKey);
       final bytes = await File(widget.imagePath).readAsBytes();
       
-      final prompt = TextPart("This is an image of a plant. Return only the common Burmese name and its broader category in Burmese format like 'နာမည် - အမျိုးအစား' (e.g., သစ်ခွ - ပန်းပွင့်သောအပင်). Do not include any other text, explanations, or markdown.");
+      final prompt = TextPart(systemPrompt);
       final imagePart = DataPart('image/jpeg', bytes);
 
       final response = await model.generateContent([
@@ -143,7 +155,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       });
     } catch (e) {
       setState(() {
-        plantName = "ရှာဖွေ၍မရပါ (အင်တာနက် လိုအပ်ပါသည်) - အခြားအပင်များ";
+        plantName = "ရှာဖွေ၍မရပါ (အင်တာနက် သို့မဟုတ် API Key မှားယွင်းနေပါသည်)";
         isLoading = false;
       });
     }
@@ -156,8 +168,18 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     });
 
     try {
+      final prefs = await SharedPreferences.getInstance();
+      final apiKey = prefs.getString('gemini_api_key') ?? '';
+
+      if (apiKey.isEmpty) {
+        setState(() {
+          aiAdvice = "⚠️ API Key မထည့်ရသေးပါ (Admin ဆက်တင်တွင် သွားထည့်ပါ)";
+          isAdviceLoading = false;
+        });
+        return;
+      }
+
       final state = context.read<AppState>();
-      
       final availableItems = state.homeInventory.entries
           .where((entry) => entry.value == true)
           .map((entry) => entry.key)
@@ -180,7 +202,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       });
     } catch (e) {
       setState(() {
-        aiAdvice = "အကြံဉာဏ် ရယူ၍မရပါ";
+        aiAdvice = "အကြံဉာဏ် ရယူ၍မရပါ (အင်တာနက် သို့မဟုတ် API Key ကို စစ်ဆေးပါ)";
         isAdviceLoading = false;
       });
     }
@@ -220,7 +242,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   child: isLoading 
                     ? const CircularProgressIndicator(color: Colors.green)
                     : Text(
-                        plantName.split('-')[0].trim(), // နာမည်သီးသန့် ပြမည်
+                        plantName.split('-')[0].trim(), 
                         style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.green),
                         textAlign: TextAlign.center,
                       ),
@@ -257,16 +279,13 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
             ),
             const SizedBox(height: 15),
 
-            // ဓာတ်ပုံသိမ်းမည့် ခလုတ် နှင့် Database လော့ဂျစ်
             ElevatedButton.icon(
               onPressed: isLoading ? null : () async {
                 try {
-                  // ၁။ ဓာတ်ပုံကို ဖုန်းထဲမှာ ရာသက်ပန် သိမ်းရန်
                   final directory = await getApplicationDocumentsDirectory();
                   final String newPath = '${directory.path}/plant_${DateTime.now().millisecondsSinceEpoch}.jpg';
                   final savedImage = await File(widget.imagePath).copy(newPath);
 
-                  // ၂။ နာမည်နှင့် အမျိုးအစား ခွဲခြားခြင်း (ဥပမာ "သစ်ခွ - ပန်းပွင့်သောအပင်")
                   String nameToSave = plantName;
                   String categoryToSave = "အခြားအပင်များ";
                   if (plantName.contains("-")) {
@@ -275,7 +294,6 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                     categoryToSave = parts.length > 1 ? parts[1].trim() : "အခြားအပင်များ";
                   }
 
-                  // ၃။ Database ထဲသို့ မှတ်တမ်းသွင်းခြင်း
                   await DatabaseHelper.instance.insertPlant({
                     'name': nameToSave,
                     'category': categoryToSave,
@@ -288,7 +306,7 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
                   ScaffoldMessenger.of(context).showSnackBar(
                     const SnackBar(content: Text('ဓာတ်ပုံနှင့် မှတ်တမ်း သိမ်းဆည်းပြီးပါပြီ ✅', style: TextStyle(fontSize: 24))),
                   );
-                  Navigator.pop(context); // သိမ်းပြီးပါက ပင်မစာမျက်နှာသို့ ပြန်သွားမည်
+                  Navigator.pop(context); 
                 } catch (e) {
                   ScaffoldMessenger.of(context).showSnackBar(
                     SnackBar(content: Text('သိမ်းဆည်းရာတွင် အမှားဖြစ်နေပါသည်: $e', style: const TextStyle(fontSize: 24))),
