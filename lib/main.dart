@@ -1,5 +1,9 @@
+import 'dart:convert';
+import 'dart:io';
 import 'package:flutter/material.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:image_picker/image_picker.dart';
+import 'package:http/http.dart' as http;
 
 void main() {
   runApp(const SmartPlantApp());
@@ -14,22 +18,14 @@ class SmartPlantApp extends StatelessWidget {
       title: 'Smart Plant Care',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.system, 
-      theme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.light,
-        colorSchemeSeed: Colors.green,
-      ),
-      darkTheme: ThemeData(
-        useMaterial3: true,
-        brightness: Brightness.dark,
-        colorSchemeSeed: Colors.green,
-      ),
+      theme: ThemeData(useMaterial3: true, brightness: Brightness.light, colorSchemeSeed: Colors.green),
+      darkTheme: ThemeData(useMaterial3: true, brightness: Brightness.dark, colorSchemeSeed: Colors.green),
       home: const Dashboard(),
     );
   }
 }
 
-// --- Dashboard Screen ---
+// --- Dashboard & Logic ---
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
 
@@ -38,97 +34,182 @@ class Dashboard extends StatefulWidget {
 }
 
 class _DashboardState extends State<Dashboard> {
-  int _secretCounter = 0;
+  final ImagePicker _picker = ImagePicker();
+  bool _isLoading = false;
 
-  void _checkSecret(BuildContext context) {
-    _secretCounter++;
-    if (_secretCounter >= 5) {
-      _secretCounter = 0;
-      _askPassword(context);
+  Future<void> _takePhoto(ImageSource source) async {
+    final XFile? photo = await _picker.pickImage(source: source, imageQuality: 50);
+    if (photo == null) return;
+
+    setState(() => _isLoading = true);
+
+    try {
+      final bytes = await photo.readAsBytes();
+      final base64Image = base64Encode(bytes);
+      
+      // AI ဆီ ပို့ရန်
+      await _sendToAI(base64Image, File(photo.path));
+    } catch (e) {
+      _showError("ဓာတ်ပုံယူလို့ မရပါဘူး: $e");
+    } finally {
+      setState(() => _isLoading = false);
     }
   }
 
-  void _askPassword(BuildContext context) {
-    final passCtrl = TextEditingController();
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text("လုံခြုံရေးကုဒ်"),
-        content: TextField(
-          controller: passCtrl,
-          obscureText: true,
-          keyboardType: TextInputType.number,
-          decoration: const InputDecoration(hintText: "Password"),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () {
-              if (passCtrl.text == "1500") {
-                Navigator.pop(ctx);
-                Navigator.push(context, MaterialPageRoute(builder: (c) => const SecretDoor()));
-              } else {
-                Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("ကုဒ်မှားနေပါတယ်")));
-              }
-            },
-            child: const Text("Confirm"),
-          )
-        ],
-      ),
-    );
+  Future<void> _sendToAI(String base64Image, File imageFile) async {
+    final prefs = await SharedPreferences.getInstance();
+    final apiKey = prefs.getString('api_key') ?? '';
+    final proxyUrl = prefs.getString('proxy_url') ?? '';
+    
+    if (apiKey.isEmpty || proxyUrl.isEmpty) {
+      _showError("Secret Door ထဲမှာ API Key နဲ့ Proxy အရင်ထည့်ပေးပါ");
+      return;
+    }
+
+    // 5-Layer Sandwich Prompt Construction
+    final role = prefs.getString('role_box') ?? 'Expert Plant Assistant';
+    final logic = prefs.getString('logic_box') ?? 'Use Home Inventory items';
+    final persona = prefs.getString('persona_box') ?? 'Polite Burmese tone';
+
+    final fullPrompt = """
+    You MUST strictly follow the instructions below. Return final response as valid JSON only.
+    JSON Keys: plant_name, category_tag, display_message.
+    
+    [Role]: $role
+    [Logic]: $logic
+    [Persona]: $persona
+    [Action]: Identify this plant and give advice in Burmese.
+    """;
+
+    try {
+      final response = await http.post(
+        Uri.parse(proxyUrl),
+        headers: {"Content-Type": "application/json"},
+        body: jsonEncode({
+          "contents": [
+            {
+              "parts": [
+                {"text": fullPrompt},
+                {
+                  "inline_data": {
+                    "mime_type": "image/jpeg",
+                    "data": base64Image
+                  }
+                }
+              ]
+            }
+          ],
+          "key": apiKey // Proxy ကတစ်ဆင့် ပို့မည့် Key
+        }),
+      ).timeout(const Duration(seconds: 30));
+
+      if (response.statusCode == 200) {
+        final data = jsonDecode(response.body);
+        // Gemini Response parsing (Handling Markdown)
+        String rawText = data['candidates'][0]['content']['parts'][0]['text'];
+        String cleanedJson = rawText.replaceAll('```json', '').replaceAll('```', '').trim();
+        
+        Map<String, dynamic> finalResult;
+        try {
+          finalResult = jsonDecode(cleanedJson);
+        } catch (e) {
+          finalResult = {
+            "plant_name": "အပင်အမည် မသိရပါ",
+            "category_tag": "အထွေထွေ",
+            "display_message": cleanedJson // Fallback to raw text
+          };
+        }
+
+        if (!mounted) return;
+        Navigator.push(context, MaterialPageRoute(
+          builder: (c) => ActionHub(image: imageFile, data: finalResult)
+        ));
+      } else {
+        _showError("Server Error: ${response.statusCode}");
+      }
+    } catch (e) {
+      _showError("ချိတ်ဆက်မှု အဆင်မပြေပါ: $e");
+    }
+  }
+
+  void _showError(String msg) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: SafeArea(
+      body: Stack(
+        children: [
+          SafeArea(
+            child: Column(
+              children: [
+                _buildWeatherWidget(),
+                const Expanded(child: Center(child: Text("အပင်လေးတွေကို\nပြုစုကြရအောင် 🪴", textAlign: TextAlign.center, style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold)))),
+                _bigButton("📷 ဓာတ်ပုံရိုက်မည်", Colors.green[700]!, () => _takePhoto(ImageSource.camera)),
+                const SizedBox(height: 15),
+                _bigButton("🖼️ ပုံဟောင်းရွေးမည်", Colors.blue[700]!, () => _takePhoto(ImageSource.gallery)),
+                _buildVersionLink(),
+              ],
+            ),
+          ),
+          if (_isLoading) Container(color: Colors.black54, child: const Center(child: CircularProgressIndicator())),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildWeatherWidget() {
+    return Container(
+      margin: const EdgeInsets.all(15), padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(color: Colors.green.withOpacity(0.1), borderRadius: BorderRadius.circular(20)),
+      child: const Row(children: [Text("☀️ 32°C", style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold)), Spacer(), Text("ရန်ကုန်မြို့", style: TextStyle(fontSize: 20))]),
+    );
+  }
+
+  Widget _bigButton(String text, Color color, VoidCallback onTap) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 20),
+      child: SizedBox(width: double.infinity, height: 100, child: ElevatedButton(style: ElevatedButton.styleFrom(backgroundColor: color, foregroundColor: Colors.white, shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25))), onPressed: onTap, child: Text(text, style: const TextStyle(fontSize: 24)))),
+    );
+  }
+
+  Widget _buildVersionLink() {
+    return GestureDetector(onTap: () => _askPassword(context), child: const Padding(padding: EdgeInsets.all(20), child: Text("App Version: 1.0.0", style: TextStyle(color: Colors.grey))));
+  }
+
+  void _askPassword(BuildContext context) {
+    final passCtrl = TextEditingController();
+    showDialog(context: context, builder: (ctx) => AlertDialog(title: const Text("Password"), content: TextField(controller: passCtrl, obscureText: true), actions: [TextButton(onPressed: () { if (passCtrl.text == "1500") { Navigator.pop(ctx); Navigator.push(context, MaterialPageRoute(builder: (c) => const SecretDoor())); } }, child: const Text("Confirm"))]));
+  }
+}
+
+// --- Screen 2: Action Hub ---
+class ActionHub extends StatelessWidget {
+  final File image;
+  final Map<String, dynamic> data;
+
+  const ActionHub({super.key, required this.image, required this.data});
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      appBar: AppBar(title: const Text("ရလဒ်")),
+      body: SingleChildScrollView(
         child: Column(
           children: [
-            Container(
-              margin: const EdgeInsets.all(15),
-              padding: const EdgeInsets.all(20),
-              decoration: BoxDecoration(
-                color: Colors.green.withOpacity(0.1),
-                borderRadius: BorderRadius.circular(20),
-              ),
-              child: const Row(
-                children: [
-                  Text("☀️ 32°C", style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold)),
-                  Spacer(),
-                  Text("ရန်ကုန်မြို့", style: TextStyle(fontSize: 20)),
-                ],
-              ),
-            ),
-            const Expanded(
-              child: Center(
-                child: Text("အပင်လေးတွေကို\nပြုစုကြရအောင် 🪴", 
-                  textAlign: TextAlign.center,
-                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
-                ),
-              ),
-            ),
+            Image.file(image, height: 300, width: double.infinity, fit: BoxFit.cover),
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
-              child: SizedBox(
-                width: double.infinity,
-                height: 120,
-                child: ElevatedButton.icon(
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: Colors.green[700],
-                    foregroundColor: Colors.white,
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
-                  ),
-                  onPressed: () {}, 
-                  icon: const Icon(Icons.camera_alt, size: 40),
-                  label: const Text("ဓာတ်ပုံရိုက်မည်", style: TextStyle(fontSize: 26)),
-                ),
-              ),
-            ),
-            GestureDetector(
-              onTap: () => _checkSecret(context),
-              child: const Padding(
-                padding: EdgeInsets.all(20.0),
-                child: Text("App Version: 1.0.0", style: TextStyle(color: Colors.grey)),
+              padding: const EdgeInsets.all(20.0),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(data['plant_name'] ?? "အမည်မသိ", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.green)),
+                  const SizedBox(height: 10),
+                  Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.orange.withOpacity(0.2), borderRadius: BorderRadius.circular(10)), child: Text(data['category_tag'] ?? "အထွေထွေ")),
+                  const SizedBox(height: 20),
+                  Text(data['display_message'] ?? "အကြံပြုချက် မရှိပါ", style: const TextStyle(fontSize: 22)),
+                ],
               ),
             ),
           ],
@@ -138,14 +219,11 @@ class _DashboardState extends State<Dashboard> {
   }
 }
 
-// --- Secret Door Screen ---
+// --- Secret Door Screen --- (Same as before but simplified for readability)
 class SecretDoor extends StatefulWidget {
   const SecretDoor({super.key});
-
-  @override
-  State<SecretDoor> createState() => _SecretDoorState();
+  @override State<SecretDoor> createState() => _SecretDoorState();
 }
-
 class _SecretDoorState extends State<SecretDoor> {
   final _keyCtrl = TextEditingController();
   final _proxyCtrl = TextEditingController();
@@ -153,13 +231,8 @@ class _SecretDoorState extends State<SecretDoor> {
   final _logicCtrl = TextEditingController();
   final _personaCtrl = TextEditingController();
 
-  @override
-  void initState() {
-    super.initState();
-    _loadData();
-  }
-
-  _loadData() async {
+  @override void initState() { super.initState(); _load(); }
+  _load() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _keyCtrl.text = prefs.getString('api_key') ?? '';
@@ -169,7 +242,6 @@ class _SecretDoorState extends State<SecretDoor> {
       _personaCtrl.text = prefs.getString('persona_box') ?? 'Polite Burmese tone';
     });
   }
-
   _save() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('api_key', _keyCtrl.text);
@@ -177,42 +249,19 @@ class _SecretDoorState extends State<SecretDoor> {
     await prefs.setString('role_box', _roleCtrl.text);
     await prefs.setString('logic_box', _logicCtrl.text);
     await prefs.setString('persona_box', _personaCtrl.text);
-    if(mounted) ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("သိမ်းဆည်းပြီးပါပြီ")));
+    if(mounted) Navigator.pop(context);
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text("Secret Door Settings")),
-      body: SingleChildScrollView(
-        padding: const EdgeInsets.all(20),
-        child: Column(
-          children: [
-            _input("Gemini API Key", _keyCtrl),
-            _input("Cloudflare Proxy URL", _proxyCtrl),
-            const Divider(height: 40),
-            _input("Role Box", _roleCtrl),
-            _input("Logic Box", _logicCtrl),
-            _input("Persona Box", _personaCtrl),
-            const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: _save,
-              style: ElevatedButton.styleFrom(minimumSize: const Size(double.infinity, 60)),
-              child: const Text("Save All Settings"),
-            ),
-          ],
-        ),
-      ),
+      appBar: AppBar(title: const Text("Secret Door")),
+      body: ListView(padding: const EdgeInsets.all(20), children: [
+        _in("Gemini Key", _keyCtrl), _in("Proxy URL", _proxyCtrl), const Divider(),
+        _in("Role", _roleCtrl), _in("Logic", _logicCtrl), _in("Persona", _personaCtrl),
+        const SizedBox(height: 20), ElevatedButton(onPressed: _save, child: const Text("Save & Exit"))
+      ]),
     );
   }
-
-  Widget _input(String label, TextEditingController ctrl) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 15),
-      child: TextField(
-        controller: ctrl,
-        decoration: InputDecoration(labelText: label, border: const OutlineInputBorder()),
-      ),
-    );
-  }
+  Widget _in(String l, TextEditingController c) => Padding(padding: const EdgeInsets.only(bottom: 10), child: TextField(controller: c, decoration: InputDecoration(labelText: l, border: const OutlineInputBorder())));
 }
