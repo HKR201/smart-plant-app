@@ -1,0 +1,115 @@
+import 'package:flutter/material.dart';
+import 'secret_door.dart';
+
+class Dashboard extends StatefulWidget {
+  const Dashboard({super.key});
+
+  @override
+  State<Dashboard> createState() => _DashboardState();
+}
+
+class _DashboardState extends State<Dashboard> {
+  int _secretCounter = 0;
+
+  void _checkSecret(BuildContext context) {
+    _secretCounter++;
+    if (_secretCounter >= 5) {
+      _secretCounter = 0;
+      _askPassword(context);
+    }
+  }
+
+  void _askPassword(BuildContext context) {
+    final passCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text("လုံခြုံရေးကုဒ်"),
+        content: TextField(
+          controller: passCtrl,
+          obscureText: true,
+          keyboardType: TextInputType.number,
+          decoration: const InputDecoration(hintText: "Password"),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () {
+              if (passCtrl.text == "1500") {
+                Navigator.pop(ctx);
+                Navigator.push(context, MaterialPageRoute(builder: (c) => const SecretDoor()));
+              } else {
+                Navigator.pop(ctx);
+                ScaffoldMessenger.of(context).showSnackBar(const SnackBar(content: Text("ကုဒ်မှားနေပါတယ်")));
+              }
+            },
+            child: const Text("Confirm"),
+          )
+        ],
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Scaffold(
+      body: SafeArea(
+        child: Column(
+          children: [
+            // Weather Widget (Placeholder)
+            Container(
+              margin: const EdgeInsets.all(15),
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.green.withOpacity(0.1),
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: const Row(
+                children: [
+                  Text("☀️ 32°C", style: TextStyle(fontSize: 30, fontWeight: FontWeight.bold)),
+                  Spacer(),
+                  Text("ရန်ကုန်မြို့", style: TextStyle(fontSize: 20)),
+                ],
+              ),
+            ),
+            
+            const Expanded(
+              child: Center(
+                child: Text("အပင်လေးတွေကို\nပြုစုကြရအောင် 🪴", 
+                  textAlign: TextAlign.center,
+                  style: TextStyle(fontSize: 28, fontWeight: FontWeight.bold),
+                ),
+              ),
+            ),
+
+            // Big Action Buttons
+            Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 10),
+              child: SizedBox(
+                width: double.infinity,
+                height: 120,
+                child: ElevatedButton.icon(
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: Colors.green[700],
+                    foregroundColor: Colors.white,
+                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(25)),
+                  ),
+                  onPressed: () {}, 
+                  icon: const Icon(Icons.camera_alt, size: 40),
+                  label: const Text("ဓာတ်ပုံရိုက်မည်", style: TextStyle(fontSize: 26)),
+                ),
+              ),
+            ),
+
+            GestureDetector(
+              onTap: () => _checkSecret(context),
+              child: const Padding(
+                padding: EdgeInsets.all(20.0),
+                child: Text("App Version: 1.0.0", style: TextStyle(color: Colors.grey)),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
