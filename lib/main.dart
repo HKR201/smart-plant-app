@@ -5,8 +5,9 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'action_hub.dart'; 
 import 'gallery_screen.dart'; 
-import 'secret_door.dart';
+import 'secret_door.dart'; 
 import 'care_logs.dart';
+import 'database_helper.dart';
 
 void main() {
   runApp(
@@ -21,17 +22,15 @@ void main() {
 
 class AppState extends ChangeNotifier {
   Map<String, bool> homeInventory = {
-    'မီးသွေး': false,
-    'အုတ်မှုန့်': false,
-    'မြေဆွေး': false,
-    'ဖွဲပြာ': false,
-    'သဲ': false,
+    'မီးသွေး': false, 'အုတ်မှုန့်': false, 'မြေဆွေး': false, 'ဖွဲပြာ': false, 'သဲ': false,
   };
 
   String location = 'ရန်ကုန်'; 
   String weatherTemp = '--°C';
-  String weatherDesc = 'ရာသီဥတု ရှာဖွေနေပါသည်...';
-  int secretTapCount = 0; 
+  String weatherDesc = 'ရှာဖွေနေပါသည်...';
+  String aqiLevel = '--'; // AQI အဆင့်
+  String rainChance = '--%'; // မိုးရွာနိုင်ခြေ
+  List<Map<String, dynamic>> upcomingTasks = []; // သတိပေးချက်စာရင်း
 
   void toggleInventory(String item) {
     homeInventory[item] = !homeInventory[item]!;
@@ -53,63 +52,97 @@ class AppState extends ChangeNotifier {
   void setLocation(String newLocation) {
     location = newLocation;
     notifyListeners();
-    fetchWeather(); // မြို့ပြောင်းတာနဲ့ ရာသီဥတု အသစ်ပြန်ယူမည်
+    fetchWeather(); 
   }
 
-  // မိုးလေဝသ အချက်အလက် လှမ်းယူသည့် လော့ဂျစ်
+  // --- အဆင့်မြှင့်ထားသော မိုးလေဝသ လော့ဂျစ် ---
   Future<void> fetchWeather() async {
     try {
       final prefs = await SharedPreferences.getInstance();
       final weatherKey = prefs.getString('weather_api_key') ?? '';
-      
       if (weatherKey.isEmpty) {
-        weatherDesc = "⚠️ Weather API Key မထည့်ရသေးပါ";
+        weatherDesc = "API Key လိုအပ်ပါသည်";
         notifyListeners();
         return;
       }
 
       final Map<String, String> cityMap = {
-        'ရန်ကုန်': 'Yangon',
-        'မန္တလေး': 'Mandalay',
-        'နေပြည်တော်': 'Naypyidaw',
-        'တောင်ကြီး': 'Taunggyi',
-        'ပုသိမ်': 'Pathein',
-        'ပဲခူး': 'Bago',
+        'ရန်ကုန်': 'Yangon', 'မန္တလေး': 'Mandalay', 'နေပြည်တော်': 'Naypyidaw',
+        'တောင်ကြီး': 'Taunggyi', 'ပုသိမ်': 'Pathein', 'ပဲခူး': 'Bago',
       };
-
       final queryCity = cityMap[location] ?? 'Yangon';
-      final url = Uri.parse('https://api.openweathermap.org/data/2.5/weather?q=$queryCity&appid=$weatherKey&units=metric');
 
+      // ၁။ ရိုးရိုး မိုးလေဝသ ယူခြင်း
+      final url = Uri.parse('https://api.openweathermap.org/data/2.5/weather?q=$queryCity&appid=$weatherKey&units=metric');
       final response = await http.get(url);
+
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final temp = data['main']['temp'].round().toString();
-        final mainDesc = data['weather'][0]['main'].toString().toLowerCase();
+        final lat = data['coord']['lat'];
+        final lon = data['coord']['lon'];
+        weatherTemp = '${data['main']['temp'].round()}°C';
+        weatherDesc = _translateWeather(data['weather'][0]['main']);
+        rainChance = data['rain'] != null ? '${data['rain']['1h'] ?? 10}%' : '0%';
 
-        weatherTemp = '$temp°C';
-
-        if (mainDesc.contains('cloud')) {
-          weatherDesc = 'တိမ်ထူထပ်နေပါသည် ☁️';
-        } else if (mainDesc.contains('rain')) {
-          weatherDesc = 'မိုးရွာနိုင်ပါသည် 🌧️';
-        } else if (mainDesc.contains('clear')) {
-          weatherDesc = 'နေသာပါသည် ☀️';
-        } else {
-          weatherDesc = 'ရာသီဥတု သာယာပါသည် 🌤️';
+        // ၂။ AQI (လေထုအရည်အသွေး) ထပ်ယူခြင်း
+        final aqiUrl = Uri.parse('https://api.openweathermap.org/data/2.5/air_pollution?lat=$lat&lon=$lon&appid=$weatherKey');
+        final aqiResponse = await http.get(aqiUrl);
+        if (aqiResponse.statusCode == 200) {
+          final aqiData = json.decode(aqiResponse.body);
+          aqiLevel = _translateAQI(aqiData['list'][0]['main']['aqi']);
         }
-      } else {
-        weatherDesc = "ရာသီဥတု ယူ၍မရပါ";
       }
     } catch (e) {
-      weatherDesc = "အင်တာနက် ချိတ်ဆက်မှု မရှိပါ";
+      weatherDesc = "အချက်အလက် ယူ၍မရပါ";
     }
     notifyListeners();
   }
 
+  String _translateWeather(String desc) {
+    desc = desc.toLowerCase();
+    if (desc.contains('cloud')) return 'တိမ်ထူထပ်မည် ☁️';
+    if (desc.contains('rain')) return 'မိုးရွာနိုင်သည် 🌧️';
+    if (desc.contains('clear')) return 'နေသာပါသည် ☀️';
+    return 'သာယာပါသည် 🌤️';
+  }
+
+  String _translateAQI(int level) {
+    switch (level) {
+      case 1: return "ကောင်းမွန် ✅";
+      case 2: return "သင့်တင့် 🆗";
+      case 3: return "မကောင်းပါ ⚠️";
+      case 4: return "ဆိုးရွား ❌";
+      case 5: return "အန္တရာယ်ရှိ 🆘";
+      default: return "--";
+    }
+  }
+
+  // --- သတိပေးချက် (Reminders) လော့ဂျစ် ---
+  Future<void> loadReminders() async {
+    final plants = await DatabaseHelper.instance.getPlants();
+    upcomingTasks = [];
+    final now = DateTime.now();
+
+    for (var plant in plants) {
+      // သိမ်းထားတဲ့ရက်ကနေ ၃ ရက်ကျော်ရင် ရေလောင်းဖို့ သတိပေးမယ် (ရိုးရှင်းသော လော့ဂျစ်)
+      final saveDate = DateTime.parse(plant['saveDate']);
+      final diff = now.difference(saveDate).inDays;
+      if (diff >= 3) {
+        upcomingTasks.add({
+          'name': plant['name'],
+          'msg': 'ရေလောင်းရန် အချိန်တန်ပြီ',
+          'icon': Icons.opacity
+        });
+      }
+    }
+    notifyListeners();
+  }
+
+  int secretTapCount = 0;
   void incrementSecretTap(BuildContext context) {
     secretTapCount++;
     if (secretTapCount >= 5) {
-      secretTapCount = 0; 
+      secretTapCount = 0;
       Navigator.push(context, MaterialPageRoute(builder: (context) => const SecretDoorScreen()));
     }
   }
@@ -117,16 +150,11 @@ class AppState extends ChangeNotifier {
 
 class SmartPlantApp extends StatelessWidget {
   const SmartPlantApp({super.key});
-
   @override
   Widget build(BuildContext context) {
     return MaterialApp(
       debugShowCheckedModeBanner: false,
-      title: 'Smart Plant Care',
-      theme: ThemeData(
-        primarySwatch: Colors.green,
-        scaffoldBackgroundColor: const Color(0xFFE8F5E9), 
-      ),
+      theme: ThemeData(primarySwatch: Colors.green, scaffoldBackgroundColor: const Color(0xFFF1F8E9)),
       home: const DashboardScreen(),
     );
   }
@@ -134,7 +162,6 @@ class SmartPlantApp extends StatelessWidget {
 
 class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
-
   @override
   State<DashboardScreen> createState() => _DashboardScreenState();
 }
@@ -143,10 +170,17 @@ class _DashboardScreenState extends State<DashboardScreen> {
   @override
   void initState() {
     super.initState();
-    // အက်ပ်စပွင့်တာနဲ့ ရာသီဥတုကို တစ်ခါတည်း လှမ်းယူမည်
     WidgetsBinding.instance.addPostFrameCallback((_) {
       context.read<AppState>().fetchWeather();
+      context.read<AppState>().loadReminders();
     });
+  }
+
+  String _getGreeting() {
+    final hour = DateTime.now().hour;
+    if (hour < 12) return "မင်္ဂလာနံနက်ခင်းပါ 🌅";
+    if (hour < 17) return "မင်္ဂလာနေ့လယ်ခင်းပါ ☀️";
+    return "မင်္ဂလာညချမ်းပါ 🌙";
   }
 
   @override
@@ -156,92 +190,117 @@ class _DashboardScreenState extends State<DashboardScreen> {
     return Scaffold(
       appBar: AppBar(
         title: const Text('အပင်စောင့်ရှောက်ရေး', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.green[700],
+        backgroundColor: Colors.green[800],
         foregroundColor: Colors.white,
+        elevation: 0,
       ),
       drawer: _buildDrawer(context, state),
-      body: Padding(
+      body: SingleChildScrollView(
         padding: const EdgeInsets.all(16.0),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            // ရာသီဥတု ပြသမည့် ကတ်
-            Card(
-              color: Colors.white,
-              elevation: 4,
-              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  children: [
-                    Text('${state.location} မြို့ အခြေအနေ', style: const TextStyle(fontSize: 22, color: Colors.blueGrey, fontWeight: FontWeight.bold)),
-                    const SizedBox(height: 10),
-                    Text(state.weatherTemp, style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.orange)),
-                    const SizedBox(height: 10),
-                    Text(state.weatherDesc, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
-                  ],
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            Expanded(
-              child: Card(
-                color: Colors.lightBlue[50],
-                elevation: 4,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-                child: const Padding(
-                  padding: EdgeInsets.all(20.0),
-                  child: Center(
-                    child: Text(
-                      '💧 စံပယ်ပင်ကို ရေလောင်းရန် အချိန်တန်ပြီ',
-                      style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold, color: Colors.blueAccent),
-                      textAlign: TextAlign.center,
-                    ),
-                  ),
-                ),
-              ),
-            ),
-            const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const CameraScreen()));
-              },
-              icon: const Icon(Icons.camera_alt, size: 40),
-              label: const Text('📷 ဓာတ်ပုံရိုက်မည်', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                backgroundColor: Colors.green[600],
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              ),
-            ),
+            Text(_getGreeting(), style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold, color: Colors.green)),
             const SizedBox(height: 15),
-            ElevatedButton.icon(
-              onPressed: () {
-                Navigator.push(context, MaterialPageRoute(builder: (context) => const GalleryScreen()));
-              },
-              icon: const Icon(Icons.photo_library, size: 40),
-              label: const Text('🖼️ ဓာတ်ပုံပြခန်း', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-              style: ElevatedButton.styleFrom(
-                padding: const EdgeInsets.symmetric(vertical: 20),
-                backgroundColor: Colors.orange[600],
-                foregroundColor: Colors.white,
-                shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+            
+            // --- Advanced Weather Widget ---
+            Container(
+              padding: const EdgeInsets.all(20),
+              decoration: BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.circular(20),
+                boxShadow: [BoxShadow(color: Colors.black12, blurRadius: 10, spreadRadius: 2)],
+              ),
+              child: Column(
+                children: [
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                    children: [
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(state.location, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                          Text(state.weatherDesc, style: const TextStyle(fontSize: 20, color: Colors.blueGrey)),
+                        ],
+                      ),
+                      Text(state.weatherTemp, style: const TextStyle(fontSize: 45, fontWeight: FontWeight.bold, color: Colors.orange)),
+                    ],
+                  ),
+                  const Divider(height: 30),
+                  Row(
+                    mainAxisAlignment: MainAxisAlignment.spaceAround,
+                    children: [
+                      _weatherInfo('လေထု (AQI)', state.aqiLevel),
+                      _weatherInfo('မိုးရွာနိုင်ခြေ', state.rainChance),
+                    ],
+                  ),
+                ],
               ),
             ),
+            const SizedBox(height: 20),
+
+            // --- Smart Reminders Area ---
+            const Text('လုပ်ဆောင်ရန်များ', style: TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
             const SizedBox(height: 10),
-            GestureDetector(
-              onTap: () => context.read<AppState>().incrementSecretTap(context),
-              child: const Center(
+            if (state.upcomingTasks.isEmpty)
+              const Card(
                 child: Padding(
-                  padding: EdgeInsets.all(8.0),
-                  child: Text('Version 1.0.0', style: TextStyle(fontSize: 18, color: Colors.grey)),
+                  padding: EdgeInsets.all(20.0),
+                  child: Text('ယနေ့အတွက် လုပ်ဆောင်ရန် မရှိပါ ✨', style: TextStyle(fontSize: 20, color: Colors.grey), textAlign: TextAlign.center),
                 ),
-              ),
+              )
+            else
+              ...state.upcomingTasks.map((task) => Card(
+                color: Colors.blue[50],
+                margin: const EdgeInsets.only(bottom: 10),
+                child: ListTile(
+                  leading: Icon(task['icon'], color: Colors.blue, size: 35),
+                  title: Text(task['name'], style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+                  subtitle: Text(task['msg'], style: const TextStyle(fontSize: 18)),
+                ),
+              )),
+
+            const SizedBox(height: 20),
+            _actionButton(context, '📷 ဓာတ်ပုံရိုက်မည်', Colors.green[600]!, () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const CameraScreen()));
+            }),
+            const SizedBox(height: 15),
+            _actionButton(context, '🖼️ ဓာတ်ပုံပြခန်း', Colors.orange[600]!, () {
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const GalleryScreen()));
+            }),
+            
+            const SizedBox(height: 20),
+            GestureDetector(
+              onTap: () => state.incrementSecretTap(context),
+              child: const Center(child: Text('Version 1.1.0', style: TextStyle(color: Colors.grey))),
             ),
           ],
         ),
       ),
+    );
+  }
+
+  Widget _weatherInfo(String label, String value) {
+    return Column(
+      children: [
+        Text(label, style: const TextStyle(fontSize: 18, color: Colors.grey)),
+        const SizedBox(height: 5),
+        Text(value, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.bold, color: Colors.blue)),
+      ],
+    );
+  }
+
+  Widget _actionButton(BuildContext context, String label, Color color, VoidCallback onPressed) {
+    return ElevatedButton(
+      onPressed: onPressed,
+      style: ElevatedButton.styleFrom(
+        padding: const EdgeInsets.symmetric(vertical: 20),
+        backgroundColor: color,
+        foregroundColor: Colors.white,
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
+        elevation: 5,
+      ),
+      child: Text(label, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
     );
   }
 
@@ -251,153 +310,59 @@ class _DashboardScreenState extends State<DashboardScreen> {
         padding: EdgeInsets.zero,
         children: [
           DrawerHeader(
-            decoration: BoxDecoration(color: Colors.green[700]),
-            child: const Text('⚙️ ရွေးချယ်ရန်များ', style: TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold)),
+            decoration: BoxDecoration(color: Colors.green[800]),
+            child: const Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Icon(Icons.settings, color: Colors.white, size: 40),
+                SizedBox(height: 10),
+                Text('ရွေးချယ်ရန်များ', style: TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold)),
+              ],
+            ),
           ),
-          ListTile(
-            leading: const Icon(Icons.location_on, size: 35, color: Colors.blue),
-            title: const Text('မြို့နယ်ရွေးရန်', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            subtitle: Text(state.location, style: const TextStyle(fontSize: 20, color: Colors.blueGrey)),
-            onTap: () {
-              Navigator.pop(context); // Drawer ကို အရင်ပိတ်မည်
-              _showLocationDialog(context);
-            },
-          ),
-          const Divider(thickness: 2),
-          ListTile(
-            leading: const Icon(Icons.inventory_2, size: 35, color: Colors.brown),
-            title: const Text('📦 အိမ်ရှိပစ္စည်းစာရင်း', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            onTap: () {
-              Navigator.pop(context); 
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const InventoryScreen()));
-            },
-          ),
-          const Divider(thickness: 2),
-          ListTile(
-            leading: const Icon(Icons.book, size: 35, color: Colors.blue),
-            title: const Text('မှတ်သားထားသော အကြံဉာဏ်များ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            onTap: () {
-              Navigator.pop(context); // Drawer ပိတ်မည်
-              Navigator.push(context, MaterialPageRoute(builder: (context) => const CareLogsScreen()));
-            },
-          ),
-          
-          ListTile(
-            leading: const Icon(Icons.delete_forever, size: 35, color: Colors.red),
-            title: const Text('မှတ်တမ်းဖျက်မည်', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.red)),
-            onTap: () {},
-          ),
+          _drawerItem(Icons.location_on, 'မြို့နယ်ရွေးရန်', state.location, () {
+            Navigator.pop(context);
+            _showLocationDialog(context);
+          }),
+          _drawerItem(Icons.inventory_2, '📦 အိမ်ရှိပစ္စည်းစာရင်း', 'ပစ္စည်းများ ထည့်သွင်းရန်', () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const InventoryScreen()));
+          }),
+          _drawerItem(Icons.book, 'မှတ်သားထားသော အကြံဉာဏ်များ', 'ယခင်မှတ်တမ်းများ', () {
+            Navigator.pop(context);
+            Navigator.push(context, MaterialPageRoute(builder: (context) => const CareLogsScreen()));
+          }),
         ],
       ),
     );
   }
 
-  // မြို့နယ် ရွေးချယ်မည့် Box
+  Widget _drawerItem(IconData icon, String title, String sub, VoidCallback onTap) {
+    return ListTile(
+      leading: Icon(icon, size: 35, color: Colors.green[700]),
+      title: Text(title, style: const TextStyle(fontSize: 22, fontWeight: FontWeight.bold)),
+      subtitle: Text(sub, style: const TextStyle(fontSize: 18)),
+      onTap: onTap,
+    );
+  }
+
   void _showLocationDialog(BuildContext context) {
     final List<String> cities = ['ရန်ကုန်', 'မန္တလေး', 'နေပြည်တော်', 'တောင်ကြီး', 'ပုသိမ်', 'ပဲခူး'];
     showDialog(
       context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('မြို့ကို ရွေးချယ်ပါ', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-          content: SingleChildScrollView(
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: cities.map((city) {
-                return ListTile(
-                  title: Text(city, style: const TextStyle(fontSize: 24)),
-                  onTap: () {
-                    context.read<AppState>().setLocation(city);
-                    Navigator.pop(context);
-                  },
-                );
-              }).toList(),
-            ),
-          ),
-        );
-      },
-    );
-  }
-}
-
-class InventoryScreen extends StatelessWidget {
-  const InventoryScreen({super.key});
-
-  @override
-  Widget build(BuildContext context) {
-    final state = context.watch<AppState>();
-    final TextEditingController textController = TextEditingController();
-
-    return Scaffold(
-      appBar: AppBar(
-        title: const Text('အိမ်ရှိပစ္စည်းများ', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-        backgroundColor: Colors.brown[600],
-        foregroundColor: Colors.white,
+      builder: (context) => AlertDialog(
+        title: const Text('မြို့ကို ရွေးချယ်ပါ'),
+        content: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: cities.map((c) => ListTile(
+            title: Text(c, style: const TextStyle(fontSize: 22)),
+            onTap: () {
+              context.read<AppState>().setLocation(c);
+              Navigator.pop(context);
+            },
+          )).toList(),
+        ),
       ),
-      body: ListView(
-        padding: const EdgeInsets.all(16.0),
-        children: state.homeInventory.keys.map((String key) {
-          return Card(
-            elevation: 2,
-            margin: const EdgeInsets.symmetric(vertical: 8.0),
-            child: CheckboxListTile(
-              title: Text(key, style: const TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-              value: state.homeInventory[key],
-              onChanged: (bool? value) {
-                context.read<AppState>().toggleInventory(key);
-              },
-              activeColor: Colors.green,
-              controlAffinity: ListTileControlAffinity.leading,
-              contentPadding: const EdgeInsets.all(8.0),
-              secondary: IconButton(
-                icon: const Icon(Icons.delete, color: Colors.red, size: 35),
-                onPressed: () {
-                  context.read<AppState>().removeInventoryItem(key);
-                },
-              ),
-            ),
-          );
-        }).toList(),
-      ),
-      floatingActionButton: FloatingActionButton.extended(
-        onPressed: () {
-          _showAddItemDialog(context, textController);
-        },
-        backgroundColor: Colors.green[700],
-        icon: const Icon(Icons.add, size: 35, color: Colors.white),
-        label: const Text('အသစ်ထည့်မည်', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.white)),
-      ),
-    );
-  }
-
-  void _showAddItemDialog(BuildContext context, TextEditingController controller) {
-    showDialog(
-      context: context,
-      builder: (context) {
-        return AlertDialog(
-          title: const Text('ပစ္စည်းအသစ် ထည့်ရန်', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-          content: TextField(
-            controller: controller,
-            style: const TextStyle(fontSize: 26),
-            decoration: const InputDecoration(hintText: 'ဥပမာ - နွားချေး', hintStyle: TextStyle(fontSize: 24)),
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(context),
-              child: const Text('မလုပ်တော့ပါ', style: TextStyle(fontSize: 24, color: Colors.red)),
-            ),
-            ElevatedButton(
-              onPressed: () {
-                context.read<AppState>().addInventoryItem(controller.text);
-                controller.clear();
-                Navigator.pop(context);
-              },
-              style: ElevatedButton.styleFrom(backgroundColor: Colors.green),
-              child: const Text('ထည့်မည်', style: TextStyle(fontSize: 24, color: Colors.white)),
-            ),
-          ],
-        );
-      },
     );
   }
 }
