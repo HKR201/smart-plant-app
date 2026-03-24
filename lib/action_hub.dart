@@ -18,12 +18,9 @@ class _CameraScreenState extends State<CameraScreen> {
   bool _isReady = false;
 
   @override
-  void initState() {
-    super.initState();
-    _initCamera();
-  }
+  void initState() { super.initState(); _init(); }
 
-  Future<void> _initCamera() async {
+  _init() async {
     final cameras = await availableCameras();
     if (cameras.isNotEmpty) {
       _controller = CameraController(cameras[0], ResolutionPreset.high);
@@ -51,7 +48,7 @@ class _CameraScreenState extends State<CameraScreen> {
                   final img = await _controller!.takePicture();
                   if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AnalysisScreen(imagePath: img.path)));
                 },
-                child: const Icon(Icons.camera),
+                child: const Icon(Icons.camera_alt),
               ),
             ),
           )
@@ -77,35 +74,41 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   @override
   void initState() { super.initState(); _analyze(); }
 
-  Future<void> _analyze() async {
+  _analyze() async {
     try {
-      final prefs = await SharedPreferences.getInstance();
-      final url = prefs.getString('proxy_url') ?? '';
-      final key = prefs.getString('gemini_api_key') ?? '';
+      final p = await SharedPreferences.getInstance();
+      final url = p.getString('proxy_url') ?? '';
+      final key = p.getString('gemini_api_key') ?? '';
       
-      final prompt = """
-      Return ONLY valid JSON.
-      Keys: plant_name_burmese, plant_name_english, display_message.
-      Role: ${prefs.getString('prompt_role')}
-      Logic: ${prefs.getString('prompt_logic')}
-      """;
+      final fullPrompt = """
+[Hidden System Directive]
+Return strictly as a valid JSON object without markdown tags.
+Keys: plant_name_burmese, plant_name_english, display_message.
+
+[User Persona]
+Role: ${p.getString('prompt_role')}
+Logic: ${p.getString('prompt_logic')}
+Persona: ${p.getString('prompt_persona')}
+""";
 
       final bytes = await File(widget.imagePath).readAsBytes();
       final response = await http.post(
         Uri.parse('$url/v1beta/models/gemini-1.5-flash:generateContent?key=$key'),
+        headers: {'Content-Type': 'application/json'},
         body: jsonEncode({
-          "contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": base64Encode(bytes)}}]}]
+          "contents": [{"parts": [{"text": fullPrompt}, {"inline_data": {"mime_type": "image/jpeg", "data": base64Encode(bytes)}}]}]
         }),
       );
 
       final data = jsonDecode(response.body);
-      String cleanJson = data['candidates'][0]['content']['parts'][0]['text'].replaceAll('```json', '').replaceAll('```', '').trim();
-      final result = jsonDecode(cleanJson);
+      String rawText = data['candidates'][0]['content']['parts'][0]['text'];
+      String cleanJson = rawText.replaceAll('```json', '').replaceAll('```', '').trim();
+      final res = jsonDecode(cleanJson);
 
       setState(() {
-        nameMM = result['plant_name_burmese'];
-        nameEN = result['plant_name_english'];
-        advice = result['display_message'];
+        nameMM = res['plant_name_burmese'] ?? "အမည်မသိ";
+        nameEN = res['plant_name_english'] ?? "";
+        advice = res['display_message'] ?? "";
         isLoading = false;
       });
     } catch (e) { setState(() { nameMM = "Error: $e"; isLoading = false; }); }
@@ -114,26 +117,27 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('ရလဒ်')),
+      appBar: AppBar(title: const Text('အပင်အချက်အလက်')),
       body: SingleChildScrollView(
         padding: const EdgeInsets.all(16),
         child: Column(
           children: [
             Image.file(File(widget.imagePath), height: 300),
-            Text(nameMM, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+            const SizedBox(height: 20),
+            Text(nameMM, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.green)),
             Text("($nameEN)", style: const TextStyle(fontSize: 18, color: Colors.grey)),
             const SizedBox(height: 20),
             Text(advice, style: const TextStyle(fontSize: 20)),
             const SizedBox(height: 20),
-            ElevatedButton(
+            if (!isLoading) ElevatedButton(
               onPressed: () async {
                 final dir = await getApplicationDocumentsDirectory();
-                final path = '${dir.path}/${DateTime.now().ms}.jpg';
+                final path = '${dir.path}/${DateTime.now().millisecondsSinceEpoch}.jpg';
                 await File(widget.imagePath).copy(path);
-                await DatabaseHelper.instance.insertPlant({'name': nameMM, 'category': 'AI', 'imagePath': path, 'advice': advice, 'saveDate': DateTime.now().toIso8601String()});
+                await DatabaseHelper.instance.insertPlant({'name': "$nameMM ($nameEN)", 'category': 'AI', 'imagePath': path, 'advice': advice, 'saveDate': DateTime.now().toIso8601String()});
                 if (mounted) Navigator.pop(context);
               },
-              child: const Text('သိမ်းမည်'),
+              child: const Text('မှတ်တမ်းသိမ်းမည်'),
             )
           ],
         ),
@@ -141,5 +145,3 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
     );
   }
 }
-
-extension on DateTime { int get ms => millisecondsSinceEpoch; }
