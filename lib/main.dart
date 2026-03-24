@@ -4,7 +4,7 @@ import 'package:provider/provider.dart';
 import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 
-// တခြားဖိုင်များကို လှမ်းခေါ်ခြင်း
+// ဖိုင်များကို ချိတ်ဆက်ခြင်း
 import 'action_hub.dart'; 
 import 'gallery_screen.dart'; 
 import 'secret_door.dart'; 
@@ -31,7 +31,6 @@ class AppState extends ChangeNotifier {
   String weatherTemp = '--°C';
   String weatherDesc = 'ရှာဖွေနေပါသည်...';
   String aqiLevel = '--'; 
-  String rainChance = '--%'; 
   List<Map<String, dynamic>> upcomingTasks = []; 
 
   void toggleInventory(String item) {
@@ -61,38 +60,22 @@ class AppState extends ChangeNotifier {
     try {
       final prefs = await SharedPreferences.getInstance();
       final weatherKey = prefs.getString('weather_api_key') ?? '';
-      if (weatherKey.isEmpty) {
-        weatherDesc = "API Key လိုအပ်ပါသည်";
-        notifyListeners();
-        return;
-      }
+      if (weatherKey.isEmpty) return;
+
       final Map<String, String> cityMap = {
         'ရန်ကုန်': 'Yangon', 'မန္တလေး': 'Mandalay', 'နေပြည်တော်': 'Naypyidaw',
         'တောင်ကြီး': 'Taunggyi', 'ပုသိမ်': 'Pathein', 'ပဲခူး': 'Bago',
       };
       final queryCity = cityMap[location] ?? 'Yangon';
-      final url = Uri.parse('https://api.openweathermap.org/data/2.5/weather?q=$queryCity&appid=$weatherKey&units=metric');
-      final response = await http.get(url);
+      final response = await http.get(Uri.parse('https://api.openweathermap.org/data/2.5/weather?q=$queryCity&appid=$weatherKey&units=metric'));
 
       if (response.statusCode == 200) {
         final data = json.decode(response.body);
-        final lat = data['coord']['lat'];
-        final lon = data['coord']['lon'];
         weatherTemp = '${data['main']['temp'].round()}°C';
-        weatherDesc = (data['weather'][0]['main']).toString();
-        rainChance = data['rain'] != null ? '${data['rain']['1h'] ?? 10}%' : '0%';
-
-        final aqiUrl = Uri.parse('https://api.openweathermap.org/data/2.5/air_pollution?lat=$lat&lon=$lon&appid=$weatherKey');
-        final aqiResponse = await http.get(aqiUrl);
-        if (aqiResponse.statusCode == 200) {
-          final aqiData = json.decode(aqiResponse.body);
-          aqiLevel = aqiData['list'][0]['main']['aqi'].toString();
-        }
+        weatherDesc = data['weather'][0]['main'];
+        notifyListeners();
       }
-    } catch (e) {
-      weatherDesc = "အချက်အလက် ယူ၍မရပါ";
-    }
-    notifyListeners();
+    } catch (e) { debugPrint(e.toString()); }
   }
 
   Future<void> loadReminders() async {
@@ -107,10 +90,6 @@ class AppState extends ChangeNotifier {
       }
     }
     notifyListeners();
-  }
-
-  void incrementSecretTap(BuildContext context) {
-    Navigator.push(context, MaterialPageRoute(builder: (context) => const SecretDoorScreen()));
   }
 }
 
@@ -153,12 +132,18 @@ class _DashboardScreenState extends State<DashboardScreen> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            _buildWeatherCard(state),
-            const SizedBox(height: 20),
-            if (state.upcomingTasks.isNotEmpty) ...[
-              const Text('သတိပေးချက်များ', style: TextStyle(fontSize: 20, fontWeight: FontWeight.bold)),
-              ...state.upcomingTasks.map((t) => Card(child: ListTile(title: Text(t['name']), subtitle: Text(t['msg']), leading: const Icon(Icons.water_drop, color: Colors.blue)))),
-            ],
+            Card(
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
+                child: Column(
+                  children: [
+                    Text(state.location, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+                    Text(state.weatherTemp, style: const TextStyle(fontSize: 40, color: Colors.orange)),
+                    Text(state.weatherDesc),
+                  ],
+                ),
+              ),
+            ),
             const SizedBox(height: 20),
             ElevatedButton(
               onPressed: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CameraScreen())),
@@ -171,23 +156,11 @@ class _DashboardScreenState extends State<DashboardScreen> {
               style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(20), backgroundColor: Colors.orange),
               child: const Text('🖼️ ဓာတ်ပုံပြခန်း', style: TextStyle(fontSize: 22, color: Colors.white)),
             ),
-            const SizedBox(height: 30),
-            GestureDetector(onTap: () => state.incrementSecretTap(context), child: const Center(child: Text('Version 1.1.0', style: TextStyle(color: Colors.grey)))),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _buildWeatherCard(AppState state) {
-    return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(20.0),
-        child: Column(
-          children: [
-            Text(state.location, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            Text(state.weatherTemp, style: const TextStyle(fontSize: 40, color: Colors.orange)),
-            Text("လေထုအရည်အသွေး (AQI): ${state.aqiLevel}"),
+            const SizedBox(height: 20),
+            GestureDetector(
+              onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const SecretDoorScreen())),
+              child: const Center(child: Text('Version 1.1.0', style: TextStyle(color: Colors.grey))),
+            ),
           ],
         ),
       ),
@@ -199,8 +172,16 @@ class _DashboardScreenState extends State<DashboardScreen> {
       child: ListView(
         children: [
           const DrawerHeader(decoration: BoxDecoration(color: Colors.green), child: Text('မီနူး', style: TextStyle(color: Colors.white, fontSize: 24))),
-          ListTile(leading: const Icon(Icons.inventory), title: const Text('အိမ်ရှိပစ္စည်းစာရင်း'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const InventoryScreen()))),
-          ListTile(leading: const Icon(Icons.book), title: const Text('အကြံဉာဏ်များ'), onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CareLogsScreen()))),
+          ListTile(
+            leading: const Icon(Icons.inventory), 
+            title: const Text('အိမ်ရှိပစ္စည်းစာရင်း'), 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const InventoryScreen()))
+          ),
+          ListTile(
+            leading: const Icon(Icons.book), 
+            title: const Text('အကြံဉာဏ်များ'), 
+            onTap: () => Navigator.push(context, MaterialPageRoute(builder: (context) => const CareLogsScreen()))
+          ),
         ],
       ),
     );
