@@ -5,7 +5,8 @@ import 'package:http/http.dart' as http;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'action_hub.dart'; 
 import 'gallery_screen.dart'; 
-import 'secret_door.dart'; 
+import 'secret_door.dart';
+import 'care_logs.dart';
 
 void main() {
   runApp(
@@ -275,8 +276,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           ListTile(
             leading: const Icon(Icons.book, size: 35, color: Colors.blue),
             title: const Text('မှတ်သားထားသော အကြံဉာဏ်များ', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
-            onTap: () {},
+            onTap: () {
+              Navigator.pop(context); // Drawer ပိတ်မည်
+              Navigator.push(context, MaterialPageRoute(builder: (context) => const CareLogsScreen()));
+            },
           ),
+          
           ListTile(
             leading: const Icon(Icons.delete_forever, size: 35, color: Colors.red),
             title: const Text('မှတ်တမ်းဖျက်မည်', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.red)),
