@@ -1,0 +1,37 @@
+name: Manual Flutter APK Build
+
+# သင်တောင်းဆိုထားတဲ့အတိုင်း Auto မလုပ်ဘဲ Manual (ကိုယ့်ဘာသာခလုတ်နှိပ်မှ) အလုပ်လုပ်မယ့် စနစ်ပါ။
+on:
+  workflow_dispatch:
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: ကိုယ့်ရဲ့ Code တွေကို စက်ရုံထဲ ဆွဲယူခြင်း
+        uses: actions/checkout@v4
+
+      - name: Android အတွက် Java ထည့်သွင်းခြင်း
+        uses: actions/setup-java@v3
+        with:
+          distribution: 'zulu'
+          java-version: '17'
+
+      - name: Flutter နည်းပညာ ထည့်သွင်းခြင်း
+        uses: subosito/flutter-action@v2
+        with:
+          channel: 'stable'
+
+      - name: လိုအပ်တဲ့ ဖိုင်တွေ ဒေါင်းလုဒ်ဆွဲခြင်း
+        run: flutter pub get
+
+      - name: APK ဖိုင် အဖြစ် ပြောင်းလဲထုတ်လုပ်ခြင်း
+        run: flutter build apk --release
+
+      - name: ထွက်လာတဲ့ APK ကို ဒေါင်းလုဒ်ဆွဲလို့ရအောင် တင်ပေးခြင်း
+        uses: actions/upload-artifact@v4
+        with:
+          name: Smart-Plant-App-APK
+          path: build/app/outputs/flutter-apk/app-release.apk
+          
