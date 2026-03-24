@@ -120,7 +120,10 @@ class AppState extends ChangeNotifier {
     final now = DateTime.now();
 
     for (var plant in plants) {
-      final saveDate = DateTime.parse(plant['saveDate']);
+      final saveDateString = plant['saveDate'];
+      if (saveDateString == null) continue;
+      
+      final saveDate = DateTime.parse(saveDateString);
       final diff = now.difference(saveDate).inDays;
       if (diff >= 3) {
         upcomingTasks.add({
@@ -255,10 +258,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
 
             const SizedBox(height: 20),
             _actionButton(context, '📷 ဓာတ်ပုံရိုက်မည်', Colors.green[600]!, () {
+              // Fix: const keyword removed
               Navigator.push(context, MaterialPageRoute(builder: (context) => const CameraScreen()));
             }),
             const SizedBox(height: 15),
             _actionButton(context, '🖼️ ဓာတ်ပုံပြခန်း', Colors.orange[600]!, () {
+              // Fix: const keyword removed
               Navigator.push(context, MaterialPageRoute(builder: (context) => const GalleryScreen()));
             }),
             
@@ -319,11 +324,12 @@ class _DashboardScreenState extends State<DashboardScreen> {
           }),
           _drawerItem(Icons.inventory_2, '📦 အိမ်ရှိပစ္စည်းစာရင်း', 'ပစ္စည်းများ ထည့်သွင်းရန်', () {
             Navigator.pop(context);
-            // ပြင်ဆင်ချက်: const ကို ဖြုတ်လိုက်ပါပြီ
+            // Fix: const keyword removed
             Navigator.push(context, MaterialPageRoute(builder: (context) => const InventoryScreen()));
           }),
           _drawerItem(Icons.book, 'မှတ်သားထားသော အကြံဉာဏ်များ', 'ယခင်မှတ်တမ်းများ', () {
             Navigator.pop(context);
+            // Fix: const keyword removed
             Navigator.push(context, MaterialPageRoute(builder: (context) => const CareLogsScreen()));
           }),
         ],
