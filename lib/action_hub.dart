@@ -8,7 +8,6 @@ import 'package:path_provider/path_provider.dart';
 import 'database_helper.dart';
 
 class CameraScreen extends StatefulWidget {
-  const CameraScreen({super.key});
   @override
   State<CameraScreen> createState() => _CameraScreenState();
 }
@@ -60,7 +59,7 @@ class _CameraScreenState extends State<CameraScreen> {
 
 class AnalysisScreen extends StatefulWidget {
   final String imagePath;
-  const AnalysisScreen({super.key, required this.imagePath});
+  const AnalysisScreen({required this.imagePath});
   @override
   State<AnalysisScreen> createState() => _AnalysisScreenState();
 }
@@ -82,13 +81,13 @@ class _AnalysisScreenState extends State<AnalysisScreen> {
       
       final fullPrompt = """
 [Hidden System Directive]
-Return strictly as a valid JSON object without markdown tags.
+Return strictly as a valid JSON object. No markdown tags.
 Keys: plant_name_burmese, plant_name_english, display_message.
 
 [User Persona]
-Role: ${p.getString('prompt_role')}
-Logic: ${p.getString('prompt_logic')}
-Persona: ${p.getString('prompt_persona')}
+Role: ${p.getString('prompt_role') ?? 'Expert'}
+Logic: ${p.getString('prompt_logic') ?? 'Analyze'}
+Persona: ${p.getString('prompt_persona') ?? 'Polite'}
 """;
 
       final bytes = await File(widget.imagePath).readAsBytes();
