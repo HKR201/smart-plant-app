@@ -10,6 +10,7 @@ class SecretDoorScreen extends StatefulWidget {
 
 class _SecretDoorScreenState extends State<SecretDoorScreen> {
   final TextEditingController _apiKeyController = TextEditingController();
+  final TextEditingController _weatherKeyController = TextEditingController();
   final TextEditingController _promptController = TextEditingController();
   bool _isLoading = true;
 
@@ -19,21 +20,21 @@ class _SecretDoorScreenState extends State<SecretDoorScreen> {
     _loadSettings();
   }
 
-  // သိမ်းထားသော Key နှင့် Prompt ကို ပြန်ခေါ်ခြင်း
   Future<void> _loadSettings() async {
     final prefs = await SharedPreferences.getInstance();
     setState(() {
       _apiKeyController.text = prefs.getString('gemini_api_key') ?? '';
+      _weatherKeyController.text = prefs.getString('weather_api_key') ?? '';
       _promptController.text = prefs.getString('system_prompt') ?? 
         "This is an image of a plant. Return only the common Burmese name and its broader category in Burmese format like 'နာမည် - အမျိုးအစား' (e.g., သစ်ခွ - ပန်းပွင့်သောအပင်). Do not include any other text, explanations, or markdown.";
       _isLoading = false;
     });
   }
 
-  // Key နှင့် Prompt ကို ဖုန်းထဲတွင် သိမ်းဆည်းခြင်း
   Future<void> _saveSettings() async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString('gemini_api_key', _apiKeyController.text.trim());
+    await prefs.setString('weather_api_key', _weatherKeyController.text.trim());
     await prefs.setString('system_prompt', _promptController.text.trim());
     
     if (!mounted) return;
@@ -43,7 +44,7 @@ class _SecretDoorScreenState extends State<SecretDoorScreen> {
         backgroundColor: Colors.green,
       ),
     );
-    Navigator.pop(context); // သိမ်းပြီးရင် နောက်ဆုတ်မည်
+    Navigator.pop(context); 
   }
 
   @override
@@ -59,27 +60,32 @@ class _SecretDoorScreenState extends State<SecretDoorScreen> {
         : ListView(
             padding: const EdgeInsets.all(16.0),
             children: [
-              const Text('🔑 Gemini API Key ထည့်ရန်', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              const Text('🔑 Gemini API Key (AI အတွက်)', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
               TextField(
                 controller: _apiKeyController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                  hintText: 'AIzaSy...',
-                ),
+                decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'AIzaSy...'),
                 maxLines: 2,
                 style: const TextStyle(fontSize: 20),
               ),
-              const SizedBox(height: 30),
+              const SizedBox(height: 20),
+
+              const Text('⛅ Weather API Key (မိုးလေဝသအတွက်)', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
+              const SizedBox(height: 10),
+              TextField(
+                controller: _weatherKeyController,
+                decoration: const InputDecoration(border: OutlineInputBorder(), hintText: 'OpenWeatherMap Key...'),
+                maxLines: 2,
+                style: const TextStyle(fontSize: 20),
+              ),
+              const SizedBox(height: 20),
               
               const Text('📝 AI အတွက် အမိန့်စာ (System Prompt)', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
               const SizedBox(height: 10),
               TextField(
                 controller: _promptController,
-                decoration: const InputDecoration(
-                  border: OutlineInputBorder(),
-                ),
-                maxLines: 8,
+                decoration: const InputDecoration(border: OutlineInputBorder()),
+                maxLines: 6,
                 style: const TextStyle(fontSize: 20),
               ),
               const SizedBox(height: 30),
