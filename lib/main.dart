@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'action_hub.dart'; // ကင်မရာနှင့် AI စာမျက်နှာကို လှမ်းချိတ်ခြင်း
+import 'action_hub.dart'; 
+import 'gallery_screen.dart'; // ပြခန်းစာမျက်နှာကို လှမ်းချိတ်ခြင်း
 
 void main() {
   runApp(
@@ -13,7 +14,6 @@ void main() {
   );
 }
 
-// အက်ပ်တစ်ခုလုံးရဲ့ မှတ်ဉာဏ်
 class AppState extends ChangeNotifier {
   Map<String, bool> homeInventory = {
     'မီးသွေး': false,
@@ -84,7 +84,6 @@ class SmartPlantApp extends StatelessWidget {
   }
 }
 
-// ပင်မ စာမျက်နှာ (Dashboard)
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
@@ -138,14 +137,9 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
-            
-            // 📷 ကင်မရာ ခလုတ် (အမှားကင်းအောင် ပြင်ဆင်ပြီး)
             ElevatedButton.icon(
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const CameraScreen()),
-                );
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const CameraScreen()));
               },
               icon: const Icon(Icons.camera_alt, size: 40),
               label: const Text('📷 ဓာတ်ပုံရိုက်မည်', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
@@ -158,10 +152,10 @@ class DashboardScreen extends StatelessWidget {
             ),
             const SizedBox(height: 15),
             
-            // 🖼️ ပြခန်း ခလုတ်
+            // 🖼️ ပြခန်းခလုတ်ကို ချိတ်ဆက်လိုက်ပါပြီ
             ElevatedButton.icon(
               onPressed: () {
-                // ပြခန်း စာမျက်နှာ (နောက်အဆင့်တွင် ထည့်သွင်းမည်)
+                Navigator.push(context, MaterialPageRoute(builder: (context) => const GalleryScreen()));
               },
               icon: const Icon(Icons.photo_library, size: 40),
               label: const Text('🖼️ ဓာတ်ပုံပြခန်း', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
@@ -229,7 +223,6 @@ class DashboardScreen extends StatelessWidget {
   }
 }
 
-// အိမ်ရှိပစ္စည်းစာရင်း စာမျက်နှာ
 class InventoryScreen extends StatelessWidget {
   const InventoryScreen({super.key});
 
