@@ -3,14 +3,63 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:camera/camera.dart';
 import 'package:http/http.dart' as http;
-import 'package:provider/provider.dart';
-import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
-import 'main.dart'; 
-import 'database_helper.dart'; 
+import 'package:path_provider/path_provider.dart';
+import 'database_helper.dart';
 
-// --- [Note: CameraScreen remains identical to previous version] ---
-// ... (Insert CameraScreen here if copying full file) ...
+class CameraScreen extends StatefulWidget {
+  const CameraScreen({super.key});
+  @override
+  State<CameraScreen> createState() => _CameraScreenState();
+}
+
+class _CameraScreenState extends State<CameraScreen> {
+  CameraController? _controller;
+  bool _isReady = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _initCamera();
+  }
+
+  Future<void> _initCamera() async {
+    final cameras = await availableCameras();
+    if (cameras.isNotEmpty) {
+      _controller = CameraController(cameras[0], ResolutionPreset.high);
+      await _controller!.initialize();
+      setState(() => _isReady = true);
+    }
+  }
+
+  @override
+  void dispose() { _controller?.dispose(); super.dispose(); }
+
+  @override
+  Widget build(BuildContext context) {
+    if (!_isReady) return const Scaffold(body: Center(child: CircularProgressIndicator()));
+    return Scaffold(
+      body: Stack(
+        children: [
+          CameraPreview(_controller!),
+          Align(
+            alignment: Alignment.bottomCenter,
+            child: Padding(
+              padding: const EdgeInsets.only(bottom: 30),
+              child: FloatingActionButton(
+                onPressed: () async {
+                  final img = await _controller!.takePicture();
+                  if (mounted) Navigator.pushReplacement(context, MaterialPageRoute(builder: (context) => AnalysisScreen(imagePath: img.path)));
+                },
+                child: const Icon(Icons.camera),
+              ),
+            ),
+          )
+        ],
+      ),
+    );
+  }
+}
 
 class AnalysisScreen extends StatefulWidget {
   final String imagePath;
@@ -20,145 +69,77 @@ class AnalysisScreen extends StatefulWidget {
 }
 
 class _AnalysisScreenState extends State<AnalysisScreen> {
-  String plantNameMM = "ရှာဖွေနေပါသည်...";
-  String plantNameEN = "";
-  String aiAdvice = "";
+  String nameMM = "ရှာဖွေနေပါသည်...";
+  String nameEN = "";
+  String advice = "";
   bool isLoading = true;
 
   @override
-  void initState() {
-    super.initState();
-    _identifyPlant(); 
-  }
+  void initState() { super.initState(); _analyze(); }
 
-  Future<void> _identifyPlant() async {
+  Future<void> _analyze() async {
     try {
       final prefs = await SharedPreferences.getInstance();
-      final apiKey = prefs.getString('gemini_api_key') ?? '';
-      final proxyUrl = prefs.getString('proxy_url') ?? '';
+      final url = prefs.getString('proxy_url') ?? '';
+      final key = prefs.getString('gemini_api_key') ?? '';
       
-      final role = prefs.getString('prompt_role') ?? '';
-      final logic = prefs.getString('prompt_logic') ?? '';
-      final persona = prefs.getString('prompt_persona') ?? '';
-
-      final state = context.read<AppState>();
-      final inventory = state.homeInventory.entries.where((e) => e.value).map((e) => e.key).join(", ");
-
-      if (apiKey.isEmpty || proxyUrl.isEmpty) {
-        setState(() { plantNameMM = "⚠️ API Key/Proxy လိုအပ်ပါသည်"; isLoading = false; });
-        return;
-      }
-
-      // JSON structure ထဲမှာ plant_name_english ကို ထပ်တိုးလိုက်ပါတယ်
-      final fullPrompt = """
-[Hidden System Directive]
-Return strictly as a valid JSON object.
-JSON keys: plant_name_burmese, plant_name_english, category_tag, display_message.
-
-[User Persona Instructions]
-Role: $role
-Logic: $logic
-Persona: $persona
-
-[Context Data]
-Inventory: $inventory
-Action: Analyze this plant image. Provide the Burmese common name and its English common name or scientific name.
-""";
+      final prompt = """
+      Return ONLY valid JSON.
+      Keys: plant_name_burmese, plant_name_english, display_message.
+      Role: ${prefs.getString('prompt_role')}
+      Logic: ${prefs.getString('prompt_logic')}
+      """;
 
       final bytes = await File(widget.imagePath).readAsBytes();
-      final base64Image = base64Encode(bytes);
-
-      final url = Uri.parse('$proxyUrl/v1beta/models/gemini-1.5-flash:generateContent?key=$apiKey');
-      
       final response = await http.post(
-        url,
-        headers: {'Content-Type': 'application/json'},
+        Uri.parse('$url/v1beta/models/gemini-1.5-flash:generateContent?key=$key'),
         body: jsonEncode({
-          "contents": [{
-            "parts": [
-              {"text": fullPrompt},
-              {"inline_data": {"mime_type": "image/jpeg", "data": base64Image}}
-            ]
-          }]
+          "contents": [{"parts": [{"text": prompt}, {"inline_data": {"mime_type": "image/jpeg", "data": base64Encode(bytes)}}]}]
         }),
       );
 
-      if (response.statusCode == 200) {
-        final data = jsonDecode(response.body);
-        String rawText = data['candidates'][0]['content']['parts'][0]['text'];
-        rawText = rawText.replaceAll('```json', '').replaceAll('```', '').trim();
-        final jsonRes = jsonDecode(rawText);
+      final data = jsonDecode(response.body);
+      String cleanJson = data['candidates'][0]['content']['parts'][0]['text'].replaceAll('```json', '').replaceAll('```', '').trim();
+      final result = jsonDecode(cleanJson);
 
-        setState(() {
-          plantNameMM = jsonRes['plant_name_burmese'] ?? "အမည်မသိ";
-          plantNameEN = jsonRes['plant_name_english'] ?? "";
-          aiAdvice = jsonRes['display_message'] ?? "";
-          isLoading = false;
-        });
-      } else {
-        throw Exception("Status: ${response.statusCode}");
-      }
-    } catch (e) {
-      setState(() { plantNameMM = "Error: $e"; isLoading = false; });
-    }
+      setState(() {
+        nameMM = result['plant_name_burmese'];
+        nameEN = result['plant_name_english'];
+        advice = result['display_message'];
+        isLoading = false;
+      });
+    } catch (e) { setState(() { nameMM = "Error: $e"; isLoading = false; }); }
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      appBar: AppBar(title: const Text('အပင်အချက်အလက်'), backgroundColor: Colors.green[700], foregroundColor: Colors.white),
+      appBar: AppBar(title: const Text('ရလဒ်')),
       body: SingleChildScrollView(
-        padding: const EdgeInsets.all(16.0),
+        padding: const EdgeInsets.all(16),
         child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ClipRRect(borderRadius: BorderRadius.circular(15), child: Image.file(File(widget.imagePath), height: 280, fit: BoxFit.cover)),
+            Image.file(File(widget.imagePath), height: 300),
+            Text(nameMM, style: const TextStyle(fontSize: 28, fontWeight: FontWeight.bold)),
+            Text("($nameEN)", style: const TextStyle(fontSize: 18, color: Colors.grey)),
             const SizedBox(height: 20),
-            
-            // --- အပင်နာမည်များကို MM (EN) ပုံစံဖြင့် ပြသခြင်း ---
-            Card(
-              elevation: 4,
-              child: Padding(
-                padding: const EdgeInsets.all(20.0),
-                child: Column(
-                  children: [
-                    if (isLoading) const CircularProgressIndicator()
-                    else ...[
-                      Text(plantNameMM, style: const TextStyle(fontSize: 30, fontWeight: FontWeight.bold, color: Colors.green)),
-                      if (plantNameEN.isNotEmpty)
-                        Text("($plantNameEN)", style: const TextStyle(fontSize: 20, color: Colors.grey, fontStyle: FontStyle.italic)),
-                    ],
-                  ],
-                ),
-              ),
-            ),
-
-            if (aiAdvice.isNotEmpty) ...[
-              const SizedBox(height: 20),
-              Card(color: const Color(0xFFFFF9C4), child: Padding(padding: const EdgeInsets.all(20), child: Text(aiAdvice, style: const TextStyle(fontSize: 22, height: 1.5)))),
-            ],
+            Text(advice, style: const TextStyle(fontSize: 20)),
             const SizedBox(height: 20),
-            ElevatedButton.icon(
-              onPressed: isLoading ? null : () async {
-                final directory = await getApplicationDocumentsDirectory();
-                final String newPath = '${directory.path}/plant_${DateTime.now().millisecondsSinceEpoch}.jpg';
-                await File(widget.imagePath).copy(newPath);
-                await DatabaseHelper.instance.insertPlant({
-                  'name': "$plantNameMM ($plantNameEN)",
-                  'category': 'AI Scan',
-                  'imagePath': newPath,
-                  'advice': aiAdvice,
-                  'saveDate': DateTime.now().toIso8601String(),
-                });
+            ElevatedButton(
+              onPressed: () async {
+                final dir = await getApplicationDocumentsDirectory();
+                final path = '${dir.path}/${DateTime.now().ms}.jpg';
+                await File(widget.imagePath).copy(path);
+                await DatabaseHelper.instance.insertPlant({'name': nameMM, 'category': 'AI', 'imagePath': path, 'advice': advice, 'saveDate': DateTime.now().toIso8601String()});
                 if (mounted) Navigator.pop(context);
               },
-              icon: const Icon(Icons.save, size: 30),
-              label: const Text('မှတ်တမ်းသိမ်းမည်', style: TextStyle(fontSize: 22)),
-              style: ElevatedButton.styleFrom(padding: const EdgeInsets.all(15), backgroundColor: Colors.green[800], foregroundColor: Colors.white),
-            ),
+              child: const Text('သိမ်းမည်'),
+            )
           ],
         ),
       ),
     );
   }
 }
+
+extension on DateTime { int get ms => millisecondsSinceEpoch; }
