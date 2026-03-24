@@ -1,6 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
-import 'action_hub.dart'; // ကင်မရာစာမျက်နှာကို လှမ်းချိတ်ခြင်း
+import 'action_hub.dart'; // ကင်မရာနှင့် AI စာမျက်နှာကို လှမ်းချိတ်ခြင်း
 
 void main() {
   runApp(
@@ -26,21 +26,18 @@ class AppState extends ChangeNotifier {
   String location = 'ရန်ကုန်'; 
   int secretTapCount = 0; 
 
-  // ပစ္စည်း အမှန်ခြစ် အတိုး/အလျှော့
   void toggleInventory(String item) {
     homeInventory[item] = !homeInventory[item]!;
     notifyListeners();
   }
 
-  // ပစ္စည်း အသစ်ထည့်ရန်
   void addInventoryItem(String item) {
     if (item.isNotEmpty && !homeInventory.containsKey(item)) {
-      homeInventory[item] = true; // အသစ်ထည့်ရင် အလိုအလျောက် အမှန်ခြစ်ထားပေးမည်
+      homeInventory[item] = true;
       notifyListeners();
     }
   }
 
-  // ပစ္စည်း ဖျက်ရန်
   void removeInventoryItem(String item) {
     homeInventory.remove(item);
     notifyListeners();
@@ -87,9 +84,7 @@ class SmartPlantApp extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------
 // ပင်မ စာမျက်နှာ (Dashboard)
-// ---------------------------------------------------------
 class DashboardScreen extends StatelessWidget {
   const DashboardScreen({super.key});
 
@@ -143,9 +138,14 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 20),
+            
+            // 📷 ကင်မရာ ခလုတ် (အမှားကင်းအောင် ပြင်ဆင်ပြီး)
             ElevatedButton.icon(
               onPressed: () {
-                // မကြာမီ ထည့်သွင်းမည့် ကင်မရာ စာမျက်နှာ
+                Navigator.push(
+                  context,
+                  MaterialPageRoute(builder: (context) => const CameraScreen()),
+                );
               },
               icon: const Icon(Icons.camera_alt, size: 40),
               label: const Text('📷 ဓာတ်ပုံရိုက်မည်', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
@@ -157,15 +157,11 @@ class DashboardScreen extends StatelessWidget {
               ),
             ),
             const SizedBox(height: 15),
+            
+            // 🖼️ ပြခန်း ခလုတ်
             ElevatedButton.icon(
               onPressed: () {
-                Navigator.push(
-                  context,
-                  MaterialPageRoute(builder: (context) => const CameraScreen()),
-                );
-              },
-              
-                // မကြာမီ ထည့်သွင်းမည့် ပြခန်း
+                // ပြခန်း စာမျက်နှာ (နောက်အဆင့်တွင် ထည့်သွင်းမည်)
               },
               icon: const Icon(Icons.photo_library, size: 40),
               label: const Text('🖼️ ဓာတ်ပုံပြခန်း', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
@@ -208,12 +204,11 @@ class DashboardScreen extends StatelessWidget {
             onTap: () {},
           ),
           const Divider(thickness: 2),
-          // ပစ္စည်းစာရင်းကို အထဲမှာ ဝင်ကြည့်ရအောင် ပြင်ဆင်ထားခြင်း
           ListTile(
             leading: const Icon(Icons.inventory_2, size: 35, color: Colors.brown),
             title: const Text('📦 အိမ်ရှိပစ္စည်းစာရင်း', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             onTap: () {
-              Navigator.pop(context); // Drawer ကို အရင်ပိတ်မည်
+              Navigator.pop(context); 
               Navigator.push(context, MaterialPageRoute(builder: (context) => const InventoryScreen()));
             },
           ),
@@ -234,9 +229,7 @@ class DashboardScreen extends StatelessWidget {
   }
 }
 
-// ---------------------------------------------------------
-// သီးသန့် အိမ်ရှိပစ္စည်းစာရင်း စာမျက်နှာ (အသစ်/အဖျက် လုပ်နိုင်သည်)
-// ---------------------------------------------------------
+// အိမ်ရှိပစ္စည်းစာရင်း စာမျက်နှာ
 class InventoryScreen extends StatelessWidget {
   const InventoryScreen({super.key});
 
