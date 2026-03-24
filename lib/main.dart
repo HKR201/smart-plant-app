@@ -1,8 +1,11 @@
+import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
+import 'package:http/http.dart' as http;
+import 'package:shared_preferences/shared_preferences.dart';
 import 'action_hub.dart'; 
 import 'gallery_screen.dart'; 
-import 'secret_door.dart'; // လျှို့ဝှက်တံခါးကို လှမ်းချိတ်ခြင်း
+import 'secret_door.dart'; 
 
 void main() {
   runApp(
@@ -25,6 +28,8 @@ class AppState extends ChangeNotifier {
   };
 
   String location = 'ရန်ကုန်'; 
+  String weatherTemp = '--°C';
+  String weatherDesc = 'ရာသီဥတု ရှာဖွေနေပါသည်...';
   int secretTapCount = 0; 
 
   void toggleInventory(String item) {
@@ -47,13 +52,63 @@ class AppState extends ChangeNotifier {
   void setLocation(String newLocation) {
     location = newLocation;
     notifyListeners();
+    fetchWeather(); // မြို့ပြောင်းတာနဲ့ ရာသီဥတု အသစ်ပြန်ယူမည်
   }
 
-  // Version ကို ၅ ခါနှိပ်လျှင် လျှို့ဝှက်တံခါး ဖွင့်မည့် လော့ဂျစ်
+  // မိုးလေဝသ အချက်အလက် လှမ်းယူသည့် လော့ဂျစ်
+  Future<void> fetchWeather() async {
+    try {
+      final prefs = await SharedPreferences.getInstance();
+      final weatherKey = prefs.getString('weather_api_key') ?? '';
+      
+      if (weatherKey.isEmpty) {
+        weatherDesc = "⚠️ Weather API Key မထည့်ရသေးပါ";
+        notifyListeners();
+        return;
+      }
+
+      final Map<String, String> cityMap = {
+        'ရန်ကုန်': 'Yangon',
+        'မန္တလေး': 'Mandalay',
+        'နေပြည်တော်': 'Naypyidaw',
+        'တောင်ကြီး': 'Taunggyi',
+        'ပုသိမ်': 'Pathein',
+        'ပဲခူး': 'Bago',
+      };
+
+      final queryCity = cityMap[location] ?? 'Yangon';
+      final url = Uri.parse('https://api.openweathermap.org/data/2.5/weather?q=$queryCity&appid=$weatherKey&units=metric');
+
+      final response = await http.get(url);
+      if (response.statusCode == 200) {
+        final data = json.decode(response.body);
+        final temp = data['main']['temp'].round().toString();
+        final mainDesc = data['weather'][0]['main'].toString().toLowerCase();
+
+        weatherTemp = '$temp°C';
+
+        if (mainDesc.contains('cloud')) {
+          weatherDesc = 'တိမ်ထူထပ်နေပါသည် ☁️';
+        } else if (mainDesc.contains('rain')) {
+          weatherDesc = 'မိုးရွာနိုင်ပါသည် 🌧️';
+        } else if (mainDesc.contains('clear')) {
+          weatherDesc = 'နေသာပါသည် ☀️';
+        } else {
+          weatherDesc = 'ရာသီဥတု သာယာပါသည် 🌤️';
+        }
+      } else {
+        weatherDesc = "ရာသီဥတု ယူ၍မရပါ";
+      }
+    } catch (e) {
+      weatherDesc = "အင်တာနက် ချိတ်ဆက်မှု မရှိပါ";
+    }
+    notifyListeners();
+  }
+
   void incrementSecretTap(BuildContext context) {
     secretTapCount++;
     if (secretTapCount >= 5) {
-      secretTapCount = 0; // ပြန်လည်စတင်မည်
+      secretTapCount = 0; 
       Navigator.push(context, MaterialPageRoute(builder: (context) => const SecretDoorScreen()));
     }
   }
@@ -70,19 +125,28 @@ class SmartPlantApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.green,
         scaffoldBackgroundColor: const Color(0xFFE8F5E9), 
-        textTheme: const TextTheme(
-          bodyLarge: TextStyle(fontSize: 24, fontWeight: FontWeight.bold, color: Colors.black87),
-          bodyMedium: TextStyle(fontSize: 24, color: Colors.black87),
-          titleLarge: TextStyle(fontSize: 28, fontWeight: FontWeight.bold, color: Colors.black),
-        ),
       ),
       home: const DashboardScreen(),
     );
   }
 }
 
-class DashboardScreen extends StatelessWidget {
+class DashboardScreen extends StatefulWidget {
   const DashboardScreen({super.key});
+
+  @override
+  State<DashboardScreen> createState() => _DashboardScreenState();
+}
+
+class _DashboardScreenState extends State<DashboardScreen> {
+  @override
+  void initState() {
+    super.initState();
+    // အက်ပ်စပွင့်တာနဲ့ ရာသီဥတုကို တစ်ခါတည်း လှမ်းယူမည်
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      context.read<AppState>().fetchWeather();
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -100,17 +164,20 @@ class DashboardScreen extends StatelessWidget {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
+            // ရာသီဥတု ပြသမည့် ကတ်
             Card(
               color: Colors.white,
               elevation: 4,
               shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(15)),
-              child: const Padding(
-                padding: EdgeInsets.all(20.0),
+              child: Padding(
+                padding: const EdgeInsets.all(20.0),
                 child: Column(
                   children: [
-                    Text('☀️ ဒီနေ့ နေပူတယ်', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
-                    SizedBox(height: 10),
-                    Text('အပင်လေးတွေ ရေလောင်းဖို့ ကောင်းပါတယ်။', style: TextStyle(fontSize: 24), textAlign: TextAlign.center),
+                    Text('${state.location} မြို့ အခြေအနေ', style: const TextStyle(fontSize: 22, color: Colors.blueGrey, fontWeight: FontWeight.bold)),
+                    const SizedBox(height: 10),
+                    Text(state.weatherTemp, style: const TextStyle(fontSize: 40, fontWeight: FontWeight.bold, color: Colors.orange)),
+                    const SizedBox(height: 10),
+                    Text(state.weatherDesc, style: const TextStyle(fontSize: 24, fontWeight: FontWeight.bold), textAlign: TextAlign.center),
                   ],
                 ),
               ),
@@ -187,10 +254,13 @@ class DashboardScreen extends StatelessWidget {
             child: const Text('⚙️ ရွေးချယ်ရန်များ', style: TextStyle(fontSize: 28, color: Colors.white, fontWeight: FontWeight.bold)),
           ),
           ListTile(
-            leading: const Icon(Icons.location_on, size: 35),
+            leading: const Icon(Icons.location_on, size: 35, color: Colors.blue),
             title: const Text('မြို့နယ်ရွေးရန်', style: TextStyle(fontSize: 24, fontWeight: FontWeight.bold)),
             subtitle: Text(state.location, style: const TextStyle(fontSize: 20, color: Colors.blueGrey)),
-            onTap: () {},
+            onTap: () {
+              Navigator.pop(context); // Drawer ကို အရင်ပိတ်မည်
+              _showLocationDialog(context);
+            },
           ),
           const Divider(thickness: 2),
           ListTile(
@@ -214,6 +284,33 @@ class DashboardScreen extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  // မြို့နယ် ရွေးချယ်မည့် Box
+  void _showLocationDialog(BuildContext context) {
+    final List<String> cities = ['ရန်ကုန်', 'မန္တလေး', 'နေပြည်တော်', 'တောင်ကြီး', 'ပုသိမ်', 'ပဲခူး'];
+    showDialog(
+      context: context,
+      builder: (context) {
+        return AlertDialog(
+          title: const Text('မြို့ကို ရွေးချယ်ပါ', style: TextStyle(fontSize: 26, fontWeight: FontWeight.bold)),
+          content: SingleChildScrollView(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: cities.map((city) {
+                return ListTile(
+                  title: Text(city, style: const TextStyle(fontSize: 24)),
+                  onTap: () {
+                    context.read<AppState>().setLocation(city);
+                    Navigator.pop(context);
+                  },
+                );
+              }).toList(),
+            ),
+          ),
+        );
+      },
     );
   }
 }
@@ -277,10 +374,7 @@ class InventoryScreen extends StatelessWidget {
           content: TextField(
             controller: controller,
             style: const TextStyle(fontSize: 26),
-            decoration: const InputDecoration(
-              hintText: 'ဥပမာ - နွားချေး',
-              hintStyle: TextStyle(fontSize: 24),
-            ),
+            decoration: const InputDecoration(hintText: 'ဥပမာ - နွားချေး', hintStyle: TextStyle(fontSize: 24)),
           ),
           actions: [
             TextButton(
