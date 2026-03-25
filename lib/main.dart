@@ -5,6 +5,10 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:http/http.dart' as http;
 
+// ခုနက ခွဲထုတ်လိုက်တဲ့ ဖိုင် ၂ ခုကို လှမ်းချိတ်လိုက်တာပါ
+import 'secret_door.dart';
+import 'action_hub.dart';
+
 void main() {
   runApp(const SmartPlantApp());
 }
@@ -25,30 +29,27 @@ class SmartPlantApp extends StatelessWidget {
   }
 }
 
-// --- Dashboard & Logic ---
 class Dashboard extends StatefulWidget {
   const Dashboard({super.key});
-
-  @override
-  State<Dashboard> createState() => _DashboardState();
+  @override State<Dashboard> createState() => _DashboardState();
 }
 
 class _DashboardState extends State<Dashboard> {
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
 
-  // Inventory State
+  // Inventory
   List<String> _inventoryList = ["ကြက်ဥခွံ", "ဆန်ဆေးရည်", "အချိုမှုန့်", "မီးသွေး", "မြေဆွေး"];
   List<String> _selectedInventory = [];
   final TextEditingController _itemCtrl = TextEditingController();
 
-  // Weather State
+  // Weather
   List<String> _cities = ["Yangon", "Mandalay", "Naypyidaw"];
   String _selectedCity = "Yangon";
   String _temp = "--";
   String _aqiText = "AQI: --";
   Color _aqiColor = Colors.grey;
-  String _rainText = "ရာသီဥတု အချက်အလက် ယူနေဆဲ...";
+  String _rainText = "ရာသီဥတု ယူနေဆဲ...";
   bool _isWeatherLoading = false;
 
   @override
@@ -80,7 +81,6 @@ class _DashboardState extends State<Dashboard> {
     await prefs.setString('selected_city', _selectedCity);
   }
 
-  // --- Weather Logic ---
   Future<void> _fetchWeather() async {
     setState(() => _isWeatherLoading = true);
     final prefs = await SharedPreferences.getInstance();
@@ -89,14 +89,13 @@ class _DashboardState extends State<Dashboard> {
     if (weatherKey.isEmpty) {
       setState(() {
         _temp = "--";
-        _rainText = "Secret Door တွင် Weather API Key ထည့်ပါ";
+        _rainText = "Secret Door တွင် Weather API ထည့်ပါ";
         _isWeatherLoading = false;
       });
       return;
     }
 
     try {
-      // 1. Get current weather (for Temp & Lat/Lon)
       final geoUrl = "https://api.openweathermap.org/data/2.5/weather?q=$_selectedCity&appid=$weatherKey&units=metric";
       final geoRes = await http.get(Uri.parse(geoUrl));
       if (geoRes.statusCode == 200) {
@@ -105,16 +104,14 @@ class _DashboardState extends State<Dashboard> {
         final double lon = geoData['coord']['lon'];
         final double currentTemp = geoData['main']['temp'];
 
-        // 2. Get AQI
         final aqiUrl = "https://api.openweathermap.org/data/2.5/air_pollution?lat=$lat&lon=$lon&appid=$weatherKey";
         final aqiRes = await http.get(Uri.parse(aqiUrl));
         int aqiValue = 0;
         if (aqiRes.statusCode == 200) {
           final aqiData = jsonDecode(aqiRes.body);
-          aqiValue = aqiData['list'][0]['main']['aqi']; // 1 to 5
+          aqiValue = aqiData['list'][0]['main']['aqi']; 
         }
 
-        // 3. Get Forecast (for Rain)
         final forecastUrl = "https://api.openweathermap.org/data/2.5/forecast?lat=$lat&lon=$lon&appid=$weatherKey";
         final forecastRes = await http.get(Uri.parse(forecastUrl));
         String rainStatus = "မိုးရွာရန် မရှိပါ";
@@ -126,11 +123,8 @@ class _DashboardState extends State<Dashboard> {
             if (mainWeather.toLowerCase().contains('rain')) {
               DateTime rainTime = DateTime.parse(item['dt_txt']);
               int daysDiff = rainTime.difference(DateTime.now()).inDays;
-              if (daysDiff == 0) {
-                rainStatus = "၁ ရက်အတွင်း မိုးရွာနိုင်သည်";
-              } else {
-                rainStatus = "$daysDiff ရက်အတွင်း မိုးရွာနိုင်သည်";
-              }
+              if (daysDiff == 0) rainStatus = "၁ ရက်အတွင်း မိုးရွာနိုင်သည်";
+              else rainStatus = "$daysDiff ရက်အတွင်း မိုးရွာနိုင်သည်";
               break;
             }
           }
@@ -155,7 +149,6 @@ class _DashboardState extends State<Dashboard> {
     }
   }
 
-  // --- City Manager Dialog ---
   void _showCityManager() {
     final cityCtrl = TextEditingController();
     showDialog(
@@ -172,7 +165,7 @@ class _DashboardState extends State<Dashboard> {
                   children: [
                     Row(
                       children: [
-                        Expanded(child: TextField(controller: cityCtrl, decoration: const InputDecoration(hintText: "မြို့အမည် (English လို)"))),
+                        Expanded(child: TextField(controller: cityCtrl, decoration: const InputDecoration(hintText: "City (e.g., Yangon)"))),
                         IconButton(
                           icon: const Icon(Icons.add_circle, color: Colors.green),
                           onPressed: () {
@@ -225,7 +218,6 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  // --- Camera & AI Logic ---
   Future<void> _takePhoto(ImageSource source) async {
     final XFile? photo = await _picker.pickImage(source: source, imageQuality: 30, maxWidth: 800, maxHeight: 800);
     if (photo == null) return;
@@ -235,7 +227,7 @@ class _DashboardState extends State<Dashboard> {
       final base64Image = base64Encode(bytes);
       await _sendToAI(base64Image, File(photo.path));
     } catch (e) {
-      _showError("ဓာတ်ပုံယူလို့ မရပါဘူး: $e");
+      _showError("ဓာတ်ပုံယူလို့ မရပါဘူး");
     } finally {
       setState(() => _isLoading = false);
     }
@@ -251,11 +243,9 @@ class _DashboardState extends State<Dashboard> {
       return;
     }
 
-    if (!proxyUrl.contains('?key=')) {
-      proxyUrl = "$proxyUrl?key=$apiKey";
-    }
+    if (!proxyUrl.contains('?key=')) proxyUrl = "$proxyUrl?key=$apiKey";
 
-    final role = prefs.getString('role_box') ?? 'Expert Plant Assistant';
+    final role = prefs.getString('role_box') ?? 'Expert';
     final logic = prefs.getString('logic_box') ?? 'Use Home Inventory items';
     final persona = prefs.getString('persona_box') ?? 'Polite Burmese tone';
     String inventoryText = _selectedInventory.isEmpty ? "None" : _selectedInventory.join(", ");
@@ -263,12 +253,11 @@ class _DashboardState extends State<Dashboard> {
     final fullPrompt = """
     You MUST strictly follow the instructions below. Return final response as valid JSON only.
     JSON Keys: plant_name, category_tag, display_message.
-    
     [Role]: $role
     [Logic]: $logic
     [Persona]: $persona
     [User Inventory]: $inventoryText
-    [Action]: Identify this plant and give advice in Burmese. If appropriate, prioritize using items from the User Inventory.
+    [Action]: Identify this plant and give advice in Burmese.
     """;
 
     try {
@@ -283,9 +272,7 @@ class _DashboardState extends State<Dashboard> {
 
       if (response.statusCode == 302 || response.statusCode == 303) {
         final redirectUrl = response.headers['location'];
-        if (redirectUrl != null) {
-          response = await client.get(Uri.parse(redirectUrl)).timeout(const Duration(seconds: 30));
-        }
+        if (redirectUrl != null) response = await client.get(Uri.parse(redirectUrl)).timeout(const Duration(seconds: 30));
       }
       client.close();
 
@@ -294,7 +281,11 @@ class _DashboardState extends State<Dashboard> {
         String rawText = data['candidates'][0]['content']['parts'][0]['text'];
         String cleanedJson = rawText.replaceAll('```json', '').replaceAll('```', '').trim();
         Map<String, dynamic> finalResult;
-        try { finalResult = jsonDecode(cleanedJson); } catch (e) { finalResult = {"plant_name": "အမည်မသိ", "category_tag": "အထွေထွေ", "display_message": cleanedJson}; }
+        try { 
+          finalResult = jsonDecode(cleanedJson); 
+        } catch (e) { 
+          finalResult = {"plant_name": "အမည်မသိ", "category_tag": "အထွေထွေ", "display_message": cleanedJson}; 
+        }
 
         if (!mounted) return;
         Navigator.push(context, MaterialPageRoute(builder: (c) => ActionHub(image: imageFile, data: finalResult)));
@@ -302,7 +293,7 @@ class _DashboardState extends State<Dashboard> {
         _showError("Server Error: ${response.statusCode}");
       }
     } catch (e) {
-      _showError("ချိတ်ဆက်မှု အဆင်မပြေပါ: $e");
+      _showError("ချိတ်ဆက်မှု အဆင်မပြေပါ");
     }
   }
 
@@ -318,7 +309,7 @@ class _DashboardState extends State<Dashboard> {
         backgroundColor: Colors.green.withOpacity(0.2),
         elevation: 0,
       ),
-      drawer: _buildDrawer(), // Sidebar ထည့်သွင်းခြင်း
+      drawer: _buildDrawer(), 
       body: Stack(
         children: [
           SafeArea(
@@ -339,7 +330,6 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  // --- Weather UI ---
   Widget _buildWeatherWidget() {
     return GestureDetector(
       onTap: _showCityManager,
@@ -375,7 +365,6 @@ class _DashboardState extends State<Dashboard> {
     );
   }
 
-  // --- Sidebar (Drawer) UI ---
   Widget _buildDrawer() {
     return Drawer(
       child: SafeArea(
@@ -464,29 +453,3 @@ class _DashboardState extends State<Dashboard> {
     showDialog(context: context, builder: (ctx) => AlertDialog(title: const Text("Password"), content: TextField(controller: passCtrl, obscureText: true), actions: [TextButton(onPressed: () { if (passCtrl.text == "1500") { Navigator.pop(ctx); Navigator.push(context, MaterialPageRoute(builder: (c) => const SecretDoor())); } }, child: const Text("Confirm"))]));
   }
 }
-
-// --- Action Hub (ရလဒ်ပြသခြင်း) ---
-class ActionHub extends StatelessWidget {
-  final File image;
-  final Map<String, dynamic> data;
-
-  const ActionHub({super.key, required this.image, required this.data});
-
-  @override
-  Widget build(BuildContext context) {
-    return Scaffold(
-      appBar: AppBar(title: const Text("ရလဒ်")),
-      body: SingleChildScrollView(
-        child: Column(
-          children: [
-            Image.file(image, height: 300, width: double.infinity, fit: BoxFit.cover),
-            Padding(
-              padding: const EdgeInsets.all(20.0),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(data['plant_name'] ?? "အမည်မသိ", style: const TextStyle(fontSize: 32, fontWeight: FontWeight.bold, color: Colors.green)),
-                  const SizedBox(height: 10),
-                  Container(padding: const EdgeInsets.all(8), decoration: BoxDecoration(color: Colors.orange.withOpacity(0.2), borderRadius: BorderRadius.circular(10)), child: Text(data['category_tag'] ?? "အထွေထွေ")),
-                  const SizedBox(height: 20),
-                  Text(data['display_message'] ?? "အကြံပြုခ
