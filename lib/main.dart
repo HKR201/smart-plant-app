@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 // ခုနက ခွဲထုတ်လိုက်တဲ့ ဖိုင် ၂ ခုကို လှမ်းချိတ်လိုက်တာပါ
 import 'secret_door.dart';
 import 'action_hub.dart';
+import 'gallery.dart';
 
 void main() {
   runApp(const SmartPlantApp());
@@ -343,6 +344,8 @@ class _DashboardState extends State<Dashboard> {
                 _bigButton("📷 ဓာတ်ပုံရိုက်မည်", Colors.green[700]!, () => _takePhoto(ImageSource.camera)),
                 const SizedBox(height: 15),
                 _bigButton("🖼️ ပုံဟောင်းရွေးမည်", Colors.blue[700]!, () => _takePhoto(ImageSource.gallery)),
+                const SizedBox(height: 15),
+                _bigButton("📂 မှတ်တမ်းများကြည့်မည်", Colors.orange[700]!, () => Navigator.push(context, MaterialPageRoute(builder: (c) => const SmartGallery()))),
                 _buildVersionLink(),
               ],
             ),
