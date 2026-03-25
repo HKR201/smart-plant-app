@@ -64,11 +64,16 @@ class _DashboardState extends State<Dashboard> {
   Future<void> _sendToAI(String base64Image, File imageFile) async {
     final prefs = await SharedPreferences.getInstance();
     final apiKey = prefs.getString('api_key') ?? '';
-    final proxyUrl = prefs.getString('proxy_url') ?? '';
+    String proxyUrl = prefs.getString('proxy_url') ?? '';
     
     if (apiKey.isEmpty || proxyUrl.isEmpty) {
       _showError("Secret Door ထဲမှာ API Key နဲ့ Proxy အရင်ထည့်ပေးပါ");
       return;
+    }
+
+    // Google ရဲ့ စည်းမျဉ်းအရ API Key ကို URL နောက်မှာ တွဲထည့်ပေးရပါမယ်
+    if (!proxyUrl.contains('?key=')) {
+      proxyUrl = "$proxyUrl?key=$apiKey";
     }
 
     final role = prefs.getString('role_box') ?? 'Expert Plant Assistant';
@@ -88,7 +93,10 @@ class _DashboardState extends State<Dashboard> {
     try {
       final response = await http.post(
         Uri.parse(proxyUrl),
-        headers: {"Content-Type": "application/json"},
+        headers: {
+          "Content-Type": "application/json",
+          "x-goog-api-key": apiKey // Header ထဲမှာလည်း လုံခြုံရေးအရ ထည့်ပေးထားပါတယ်
+        },
         body: jsonEncode({
           "contents": [
             {
@@ -102,10 +110,10 @@ class _DashboardState extends State<Dashboard> {
                 }
               ]
             }
-          ],
-          "key": apiKey
+          ]
+          // အရင်က ဒီနေရာမှာ key ထည့်ထားတာကို Google က လက်မခံလို့ ဖြုတ်လိုက်ပါပြီ
         }),
-      ).timeout(const Duration(seconds: 60)); // စောင့်ရမယ့် အချိန်ကို ၆၀ စက္ကန့်ထိ တိုးလိုက်ပါတယ်
+      ).timeout(const Duration(seconds: 45)); // အချိန်ကို ၄၅ စက္ကန့်ပဲ ပြန်ထားပါမယ်
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -128,7 +136,7 @@ class _DashboardState extends State<Dashboard> {
           builder: (c) => ActionHub(image: imageFile, data: finalResult)
         ));
       } else {
-        _showError("Server Error: ${response.statusCode}");
+        _showError("Server Error: ${response.statusCode} (Proxy လမ်းကြောင်း မှားနေနိုင်ပါတယ်)");
       }
     } catch (e) {
       _showError("ချိတ်ဆက်မှု အဆင်မပြေပါ: $e");
