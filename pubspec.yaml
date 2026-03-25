@@ -15,7 +15,8 @@ dependencies:
   sqflite: ^2.3.2
   path: ^1.9.0
   intl: ^0.19.0
-  image_picker: ^1.0.7 # ကင်မရာအတွက် ဒါလေးအသစ်ထည့်ထားပါတယ်
+  image_picker: ^1.0.7
+  path_provider: ^2.1.2 # Database အတွက် ဖိုင်လမ်းကြောင်းရှာပေးမယ့် ကောင်လေးပါ
 
 flutter:
   uses-material-design: true
