@@ -38,7 +38,13 @@ class _DashboardState extends State<Dashboard> {
   bool _isLoading = false;
 
   Future<void> _takePhoto(ImageSource source) async {
-    final XFile? photo = await _picker.pickImage(source: source, imageQuality: 50);
+    // ဓာတ်ပုံ File Size သေးသွားအောင် imageQuality နဲ့ အရွယ်အစားကို လျှော့ချလိုက်ပါတယ်
+    final XFile? photo = await _picker.pickImage(
+      source: source, 
+      imageQuality: 30, // 50 ကနေ 30 ကို လျှော့ချလိုက်တယ်
+      maxWidth: 800,    // ပုံရဲ့ အကျယ်ကို ကန့်သတ်လိုက်တယ်
+      maxHeight: 800,   // ပုံရဲ့ အမြင့်ကို ကန့်သတ်လိုက်တယ်
+    );
     if (photo == null) return;
 
     setState(() => _isLoading = true);
@@ -47,7 +53,6 @@ class _DashboardState extends State<Dashboard> {
       final bytes = await photo.readAsBytes();
       final base64Image = base64Encode(bytes);
       
-      // AI ဆီ ပို့ရန်
       await _sendToAI(base64Image, File(photo.path));
     } catch (e) {
       _showError("ဓာတ်ပုံယူလို့ မရပါဘူး: $e");
@@ -66,7 +71,6 @@ class _DashboardState extends State<Dashboard> {
       return;
     }
 
-    // 5-Layer Sandwich Prompt Construction
     final role = prefs.getString('role_box') ?? 'Expert Plant Assistant';
     final logic = prefs.getString('logic_box') ?? 'Use Home Inventory items';
     final persona = prefs.getString('persona_box') ?? 'Polite Burmese tone';
@@ -99,13 +103,12 @@ class _DashboardState extends State<Dashboard> {
               ]
             }
           ],
-          "key": apiKey // Proxy ကတစ်ဆင့် ပို့မည့် Key
+          "key": apiKey
         }),
-      ).timeout(const Duration(seconds: 30));
+      ).timeout(const Duration(seconds: 60)); // စောင့်ရမယ့် အချိန်ကို ၆၀ စက္ကန့်ထိ တိုးလိုက်ပါတယ်
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        // Gemini Response parsing (Handling Markdown)
         String rawText = data['candidates'][0]['content']['parts'][0]['text'];
         String cleanedJson = rawText.replaceAll('```json', '').replaceAll('```', '').trim();
         
@@ -116,7 +119,7 @@ class _DashboardState extends State<Dashboard> {
           finalResult = {
             "plant_name": "အပင်အမည် မသိရပါ",
             "category_tag": "အထွေထွေ",
-            "display_message": cleanedJson // Fallback to raw text
+            "display_message": cleanedJson
           };
         }
 
@@ -131,6 +134,7 @@ class _DashboardState extends State<Dashboard> {
       _showError("ချိတ်ဆက်မှု အဆင်မပြေပါ: $e");
     }
   }
+  
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
