@@ -167,8 +167,17 @@ class _DashboardState extends State<Dashboard> {
     final prefs = await SharedPreferences.getInstance();
     final apiKey = prefs.getString('api_key')?.trim() ?? '';
     String proxyUrl = prefs.getString('proxy_url')?.trim() ?? '';
+    // Secret Door က Model Name ကို လှမ်းယူမယ်
+    final modelName = prefs.getString('model_name')?.trim() ?? 'gemini-2.5-flash'; 
+
     if (apiKey.isEmpty || proxyUrl.isEmpty) { _showError("Secret Door ထဲမှာ API Key နဲ့ Proxy အရင်ထည့်ပေးပါ"); return; }
-    if (!proxyUrl.contains('?key=')) proxyUrl = "$proxyUrl?key=$apiKey";
+    
+    // Proxy URL နောက်မှာ API Key ရော Model Name ပါ တွဲပို့ပေးမယ်
+    if (!proxyUrl.contains('?key=')) {
+      proxyUrl = "$proxyUrl?key=$apiKey&model=$modelName";
+    } else if (!proxyUrl.contains('&model=')) {
+      proxyUrl = "$proxyUrl&model=$modelName";
+    }
 
     final role = prefs.getString('role_box') ?? 'Expert';
     final logic = prefs.getString('logic_box') ?? 'Use Home Inventory items';
@@ -218,6 +227,7 @@ class _DashboardState extends State<Dashboard> {
       else _showError("Error: $e");
     }
   }
+  
 
   void _showError(String msg) {
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
