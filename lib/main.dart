@@ -109,18 +109,29 @@ class _DashboardState extends State<Dashboard> {
         final double currentTemp = geoData['main']['temp'];
 
         final aqiUrl = "https://api.openweathermap.org/data/2.5/air_pollution?lat=$lat&lon=$lon&appid=$weatherKey";
-        final aqiRes = await http.get(Uri.parse(aqiUrl));
+        final forecastUrl = "https://api.openweathermap.org/data/2.5/forecast?lat=$lat&lon=$lon&appid=$weatherKey";
+
+        // OPTIMIZATION: Fix API Traffic Jam. 
+        // Executing both AQI and Forecast APIs CONCURRENTLY instead of sequentially.
+        final responses = await Future.wait([
+          http.get(Uri.parse(aqiUrl)),
+          http.get(Uri.parse(forecastUrl))
+        ]);
+
+        final aqiRes = responses[0];
+        final forecastRes = responses[1];
+
         int aqiValue = 0;
         if (aqiRes.statusCode == 200) {
           final aqiData = jsonDecode(aqiRes.body);
           aqiValue = aqiData['list'][0]['main']['aqi']; 
         }
 
-        final forecastUrl = "https://api.openweathermap.org/data/2.5/forecast?lat=$lat&lon=$lon&appid=$weatherKey";
-        final forecastRes = await http.get(Uri.parse(forecastUrl));
         String rainStatus = "မိုးရွာရန် မရှိပါ";
         if (forecastRes.statusCode == 200) {
           final forecastData = jsonDecode(forecastRes.body);
+          // ... (ကျန်တဲ့ မိုးရွာနိုင်ခြေ တွက်တဲ့ for loop ကုဒ်များ မူလအတိုင်း ထားပါ)
+          
           final list = forecastData['list'] as List;
           for (var item in list) {
             String mainWeather = item['weather'][0]['main'];
