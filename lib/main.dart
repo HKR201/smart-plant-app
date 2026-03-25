@@ -235,7 +235,6 @@ class _DashboardState extends State<Dashboard> {
 
   Future<void> _sendToAI(String base64Image, File imageFile) async {
     final prefs = await SharedPreferences.getInstance();
-    // Space တွေ မတော်တဆ ပါသွားရင် ဖယ်ရှားပေးမယ့် trim() ကို ထည့်ထားပါတယ်
     final apiKey = prefs.getString('api_key')?.trim() ?? '';
     String proxyUrl = prefs.getString('proxy_url')?.trim() ?? '';
     
@@ -270,41 +269,57 @@ class _DashboardState extends State<Dashboard> {
         ..body = jsonEncode({"contents": [{"parts": [{"text": fullPrompt}, {"inline_data": {"mime_type": "image/jpeg", "data": base64Image}}]}]});
 
       final client = http.Client();
-      // အချိန်ကို ၆၀ စက္ကန့်ထိ ပြန်တိုးပေးထားပါတယ်
+      // အချိန်ကို ၄၅ စက္ကန့်ကနေ ၆၀ စက္ကန့် အထိ ပြန်တိုးပေးထားပါတယ်
       var streamedResponse = await client.send(request).timeout(const Duration(seconds: 60));
       var response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 302 || response.statusCode == 303) {
         final redirectUrl = response.headers['location'];
         if (redirectUrl != null) {
-          response = await client.get(Uri.parse(redirectUrl)).timeout(const Duration(seconds: 45));
+          // Google က လမ်းကြောင်းလွှဲပေးတဲ့ အချိန်မှာလည်း ၆၀ စက္ကန့် စောင့်ပေးပါမယ်
+          response = await client.get(Uri.parse(redirectUrl)).timeout(const Duration(seconds: 60));
         }
       }
       client.close();
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
-        String rawText = data['candidates'][0]['content']['parts'][0]['text'];
-        String cleanedJson = rawText.replaceAll('```json', '').replaceAll('```', '').trim();
-        Map<String, dynamic> finalResult;
-        try { 
-          finalResult = jsonDecode(cleanedJson); 
-        } catch (e) { 
-          finalResult = {"plant_name": "အမည်မသိ", "category_tag": "အထွေထွေ", "display_message": cleanedJson}; 
-        }
+        
+        // --- THE MAGIC FIX: AI က အဖြေမပေးဘဲ Error ပို့ခဲ့ရင် App မပျက်အောင် ကာကွယ်ခြင်း ---
+        if (data['candidates'] != null && data['candidates'].isNotEmpty) {
+          String rawText = data['candidates'][0]['content']['parts'][0]['text'];
+          String cleanedJson = rawText.replaceAll('```json', '').replaceAll('```', '').trim();
+          Map<String, dynamic> finalResult;
+          try { 
+            finalResult = jsonDecode(cleanedJson); 
+          } catch (e) { 
+            finalResult = {"plant_name": "အမည်မသိ", "category_tag": "အထွေထွေ", "display_message": cleanedJson}; 
+          }
 
-        if (!mounted) return;
-        Navigator.push(context, MaterialPageRoute(builder: (c) => ActionHub(image: imageFile, data: finalResult)));
+          if (!mounted) return;
+          Navigator.push(context, MaterialPageRoute(builder: (c) => ActionHub(image: imageFile, data: finalResult)));
+        } 
+        else if (data['error'] != null) {
+          // AI ဘက်က Safety ကြောင့် ငြင်းခဲ့လျှင်
+          _showError("AI မှ အဖြေမပေးပါ: ${data['error']['message']}");
+        } 
+        else {
+          _showError("AI ထံမှ မှန်ကန်သော အဖြေမရရှိပါ (ပုံစံမကျပါ)");
+        }
+        // --------------------------------------------------------------------------
+
       } else {
-        _showError("Server Error: ${response.statusCode} - ${response.body}");
+        _showError("Server Error: ${response.statusCode}");
       }
     } catch (e) {
-      // THE FIX: Error အတိအကျကို ပြပေးပါမယ်
-      _showError("Error: $e");
+      if (e.toString().contains('Timeout')) {
+        _showError("အချိန်ကြာမြင့်သွားပါသည် (အင်တာနက် နှေးနေနိုင်သည်)");
+      } else {
+        _showError("Error: $e");
+      }
     }
   }
   
-
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
