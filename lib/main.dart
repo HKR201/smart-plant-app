@@ -235,15 +235,18 @@ class _DashboardState extends State<Dashboard> {
 
   Future<void> _sendToAI(String base64Image, File imageFile) async {
     final prefs = await SharedPreferences.getInstance();
-    final apiKey = prefs.getString('api_key') ?? '';
-    String proxyUrl = prefs.getString('proxy_url') ?? '';
+    // Space တွေ မတော်တဆ ပါသွားရင် ဖယ်ရှားပေးမယ့် trim() ကို ထည့်ထားပါတယ်
+    final apiKey = prefs.getString('api_key')?.trim() ?? '';
+    String proxyUrl = prefs.getString('proxy_url')?.trim() ?? '';
     
     if (apiKey.isEmpty || proxyUrl.isEmpty) {
       _showError("Secret Door ထဲမှာ API Key နဲ့ Proxy အရင်ထည့်ပေးပါ");
       return;
     }
 
-    if (!proxyUrl.contains('?key=')) proxyUrl = "$proxyUrl?key=$apiKey";
+    if (!proxyUrl.contains('?key=')) {
+      proxyUrl = "$proxyUrl?key=$apiKey";
+    }
 
     final role = prefs.getString('role_box') ?? 'Expert';
     final logic = prefs.getString('logic_box') ?? 'Use Home Inventory items';
@@ -267,12 +270,15 @@ class _DashboardState extends State<Dashboard> {
         ..body = jsonEncode({"contents": [{"parts": [{"text": fullPrompt}, {"inline_data": {"mime_type": "image/jpeg", "data": base64Image}}]}]});
 
       final client = http.Client();
-      var streamedResponse = await client.send(request).timeout(const Duration(seconds: 45));
+      // အချိန်ကို ၆၀ စက္ကန့်ထိ ပြန်တိုးပေးထားပါတယ်
+      var streamedResponse = await client.send(request).timeout(const Duration(seconds: 60));
       var response = await http.Response.fromStream(streamedResponse);
 
       if (response.statusCode == 302 || response.statusCode == 303) {
         final redirectUrl = response.headers['location'];
-        if (redirectUrl != null) response = await client.get(Uri.parse(redirectUrl)).timeout(const Duration(seconds: 30));
+        if (redirectUrl != null) {
+          response = await client.get(Uri.parse(redirectUrl)).timeout(const Duration(seconds: 45));
+        }
       }
       client.close();
 
@@ -290,12 +296,14 @@ class _DashboardState extends State<Dashboard> {
         if (!mounted) return;
         Navigator.push(context, MaterialPageRoute(builder: (c) => ActionHub(image: imageFile, data: finalResult)));
       } else {
-        _showError("Server Error: ${response.statusCode}");
+        _showError("Server Error: ${response.statusCode} - ${response.body}");
       }
     } catch (e) {
-      _showError("ချိတ်ဆက်မှု အဆင်မပြေပါ");
+      // THE FIX: Error အတိအကျကို ပြပေးပါမယ်
+      _showError("Error: $e");
     }
   }
+  
 
   void _showError(String msg) {
     ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
