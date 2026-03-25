@@ -71,7 +71,7 @@ class _DashboardState extends State<Dashboard> {
       return;
     }
 
-    // Google ရဲ့ စည်းမျဉ်းအရ API Key ကို URL နောက်မှာ တွဲထည့်ပေးရပါမယ်
+    // Proxy လမ်းကြောင်းနောက်မှာ Key တွဲပို့ရန်
     if (!proxyUrl.contains('?key=')) {
       proxyUrl = "$proxyUrl?key=$apiKey";
     }
@@ -91,13 +91,11 @@ class _DashboardState extends State<Dashboard> {
     """;
 
     try {
-      final response = await http.post(
-        Uri.parse(proxyUrl),
-        headers: {
-          "Content-Type": "application/json",
-          "x-goog-api-key": apiKey // Header ထဲမှာလည်း လုံခြုံရေးအရ ထည့်ပေးထားပါတယ်
-        },
-        body: jsonEncode({
+      // 1. Google ဆီ ပို့မည့် Request ကို တည်ဆောက်ခြင်း
+      final request = http.Request('POST', Uri.parse(proxyUrl))
+        ..followRedirects = false // Google က လမ်းကြောင်းလွှဲရင် App က Error မတက်အောင် တားထားမယ်
+        ..headers['Content-Type'] = 'application/json'
+        ..body = jsonEncode({
           "contents": [
             {
               "parts": [
@@ -111,9 +109,23 @@ class _DashboardState extends State<Dashboard> {
               ]
             }
           ]
-          // အရင်က ဒီနေရာမှာ key ထည့်ထားတာကို Google က လက်မခံလို့ ဖြုတ်လိုက်ပါပြီ
-        }),
-      ).timeout(const Duration(seconds: 45)); // အချိန်ကို ၄၅ စက္ကန့်ပဲ ပြန်ထားပါမယ်
+        });
+
+      // 2. Request ကို စတင်ပို့လွှတ်ခြင်း
+      final client = http.Client();
+      var streamedResponse = await client.send(request).timeout(const Duration(seconds: 45));
+      var response = await http.Response.fromStream(streamedResponse);
+
+      // --- 3. THE MAGIC FIX: 302 Redirect ကို ဖြေရှင်းခြင်း ---
+      if (response.statusCode == 302 || response.statusCode == 303) {
+        final redirectUrl = response.headers['location'];
+        if (redirectUrl != null) {
+          // Google လွှဲပေးတဲ့ လမ်းကြောင်းဆီကနေ အဖြေကို သွားယူမယ်
+          response = await client.get(Uri.parse(redirectUrl)).timeout(const Duration(seconds: 30));
+        }
+      }
+      client.close();
+      // ----------------------------------------------------
 
       if (response.statusCode == 200) {
         final data = jsonDecode(response.body);
@@ -136,7 +148,7 @@ class _DashboardState extends State<Dashboard> {
           builder: (c) => ActionHub(image: imageFile, data: finalResult)
         ));
       } else {
-        _showError("Server Error: ${response.statusCode} (Proxy လမ်းကြောင်း မှားနေနိုင်ပါတယ်)");
+        _showError("Server Error: ${response.statusCode} - ချိတ်ဆက်မှု မှားယွင်းနေပါသည်");
       }
     } catch (e) {
       _showError("ချိတ်ဆက်မှု အဆင်မပြေပါ: $e");
