@@ -11,17 +11,53 @@ class SmartGallery extends StatefulWidget {
 
 class _SmartGalleryState extends State<SmartGallery> {
   List<Map<String, dynamic>> _plants = [];
+  
+  // --- Lazy Loading & Pagination အတွက် Variable များ ---
+  bool _isLoadingMore = false;
+  bool _hasMore = true;
+  int _offset = 0;
+  final int _limit = 10; // တစ်ခါခေါ်လျှင် ၁၀ ပုံခေါ်မည်
+  final ScrollController _scrollController = ScrollController();
 
   @override
   void initState() {
     super.initState();
     _loadPlants();
+    _scrollController.addListener(_onScroll); // Scroll ဆွဲတာကို စောင့်ကြည့်မည်
   }
 
-  _loadPlants() async {
-    final data = await DBHelper.getPlants();
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  // OPTIMIZATION: အောက်ဆုံးရောက်ခါနီးလျှင် နောက်ထပ်ဒေတာများ ထပ်ခေါ်မည်
+  void _onScroll() {
+    if (_scrollController.position.pixels >= _scrollController.position.maxScrollExtent - 200 && !_isLoadingMore && _hasMore) {
+      _loadMore();
+    }
+  }
+
+  // ပထမဆုံး အကြိမ် စာရင်းခေါ်ယူခြင်း
+  Future<void> _loadPlants() async {
+    final data = await DBHelper.getPlants(limit: _limit, offset: 0);
     setState(() {
       _plants = data;
+      _offset = _limit;
+      _hasMore = data.length == _limit;
+    });
+  }
+
+  // OPTIMIZATION: နောက်ထပ် အသုတ်များကို ဆက်ခေါ်ခြင်း
+  Future<void> _loadMore() async {
+    setState(() => _isLoadingMore = true);
+    final data = await DBHelper.getPlants(limit: _limit, offset: _offset);
+    setState(() {
+      _plants.addAll(data);
+      _offset += _limit;
+      _hasMore = data.length == _limit;
+      _isLoadingMore = false;
     });
   }
 
@@ -45,7 +81,7 @@ class _SmartGalleryState extends State<SmartGallery> {
           textColor: Colors.orangeAccent,
           onPressed: () async {
             await DBHelper.savePlant(plant); // မှားဖျက်မိရင် Database ထဲ ပြန်ထည့်မယ်
-            _loadPlants(); // UI ကို Refresh ပြန်လုပ်မယ်
+            _loadPlants(); // UI ကို အစကနေ Refresh ပြန်လုပ်မယ်
           },
         ),
         duration: const Duration(seconds: 4),
@@ -71,10 +107,20 @@ class _SmartGalleryState extends State<SmartGallery> {
               ),
             )
           : ListView.builder(
+              controller: _scrollController, // Pagination အတွက် Controller တပ်ဆင်ထားသည်
               physics: const BouncingScrollPhysics(),
               padding: const EdgeInsets.all(16),
-              itemCount: _plants.length,
+              itemCount: _plants.length + (_hasMore ? 1 : 0), // အောက်ဆုံးမှာ Loading လေးပြရန် +1 လုပ်ထားသည်
               itemBuilder: (context, index) {
+                
+                // နောက်ထပ်ဒေတာခေါ်နေတုန်း အောက်ဆုံးမှာ Loading အဝိုင်းလေး ပြမည်
+                if (index == _plants.length) {
+                  return const Padding(
+                    padding: EdgeInsets.symmetric(vertical: 20),
+                    child: Center(child: CircularProgressIndicator()),
+                  );
+                }
+
                 final plant = _plants[index];
                 return Card(
                   margin: const EdgeInsets.only(bottom: 12),
@@ -97,6 +143,8 @@ class _SmartGalleryState extends State<SmartGallery> {
                             child: Image.file(
                               File(plant['image_path']), 
                               height: 70, width: 70, fit: BoxFit.cover,
+                              // CRITICAL OPTIMIZATION: ဖုန်း Memory ထဲတွင် ပုံအသေးလေးအဖြစ်သာ သိမ်းထားရန်
+                              cacheHeight: 250, 
                               errorBuilder: (context, error, stackTrace) => Container(height: 70, width: 70, color: Colors.grey, child: const Icon(Icons.broken_image)),
                             ),
                           ),
@@ -145,6 +193,8 @@ class PlantDetailScreen extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Image.file(File(plant['image_path']), width: double.infinity, height: 350, fit: BoxFit.cover,
+              // CRITICAL OPTIMIZATION: RAM ပြည့်မသွားစေရန် ပုံအရွယ်အစား ကန့်သတ်ခြင်း
+              cacheWidth: 800, 
               errorBuilder: (context, error, stackTrace) => Container(height: 350, color: Colors.grey, child: const Center(child: Icon(Icons.broken_image, size: 50))),
             ),
             Padding(
