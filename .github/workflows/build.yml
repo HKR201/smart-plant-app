@@ -30,8 +30,10 @@ jobs:
           sed -i '/<application/i \    <uses-permission android:name="android.permission.INTERNET" />' android/app/src/main/AndroidManifest.xml
 
       - name: Get Dependencies
-        run: flutter pub get
-
+        run: |
+          flutter pub get
+          flutter pub run flutter_launcher_icons:main
+          
       - name: Build APK
         run: flutter build apk --release --no-tree-shake-icons
 
