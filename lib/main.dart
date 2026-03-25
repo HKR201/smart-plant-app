@@ -22,18 +22,16 @@ class SmartPlantApp extends StatelessWidget {
       title: 'Smart Plant Care',
       debugShowCheckedModeBanner: false,
       themeMode: ThemeMode.system, 
-      // --- UI Polish: Minimalist Light Theme ---
       theme: ThemeData(
         useMaterial3: true, 
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.light),
-        scaffoldBackgroundColor: const Color(0xFFF8F9FA), // သန့်ရှင်းသော မီးခိုးဖျော့ နောက်ခံ
+        scaffoldBackgroundColor: const Color(0xFFF8F9FA),
         appBarTheme: const AppBarTheme(backgroundColor: Colors.transparent, elevation: 0, centerTitle: true),
       ),
-      // --- UI Polish: Minimalist Dark Theme ---
       darkTheme: ThemeData(
         useMaterial3: true, 
         colorScheme: ColorScheme.fromSeed(seedColor: Colors.teal, brightness: Brightness.dark),
-        scaffoldBackgroundColor: const Color(0xFF121212), // မျက်စိအေးသော အမည်းရောင်
+        scaffoldBackgroundColor: const Color(0xFF121212),
         appBarTheme: const AppBarTheme(backgroundColor: Colors.transparent, elevation: 0, centerTitle: true),
       ),
       home: const Dashboard(),
@@ -47,9 +45,6 @@ class Dashboard extends StatefulWidget {
 }
 
 class _DashboardState extends State<Dashboard> {
-  // ------------------------------------------------------------------
-  // LOGIC ပိုင်းများ (လုံးဝ မပြင်ထားပါ၊ မူလအတိုင်းဖြစ်သည်)
-  // ------------------------------------------------------------------
   final ImagePicker _picker = ImagePicker();
   bool _isLoading = false;
 
@@ -228,10 +223,6 @@ class _DashboardState extends State<Dashboard> {
     if (mounted) ScaffoldMessenger.of(context).showSnackBar(SnackBar(content: Text(msg)));
   }
 
-  // ------------------------------------------------------------------
-  // UI ပိုင်းများ (ဆရာသမား၏ Blueprint အတိုင်း Gemini ပုံစံ အချောသတ်ထားသည်)
-  // ------------------------------------------------------------------
-
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -244,13 +235,13 @@ class _DashboardState extends State<Dashboard> {
           ),
         ),
       ),
-      drawer: _buildDrawer(), // Sidebar အသစ်
+      drawer: _buildDrawer(), 
       body: Stack(
         children: [
           SafeArea(
             child: Column(
               children: [
-                _buildWeatherWidget(), // နှိပ်လို့မရတော့သော အချက်အလက်သီးသန့် Weather
+                _buildWeatherWidget(), 
                 const Spacer(),
                 Text(
                   "အပင်လေးတွေကို\nပြုစုကြရအောင် 🪴", 
@@ -262,14 +253,12 @@ class _DashboardState extends State<Dashboard> {
                   )
                 ),
                 const Spacer(),
-                // Gemini Style ခလုတ်များ
                 _minimalButton("ဓာတ်ပုံရိုက်မည်", Icons.camera_alt_rounded, () => _takePhoto(ImageSource.camera), true),
                 _minimalButton("ပုံဟောင်းရွေးမည်", Icons.photo_library_rounded, () => _takePhoto(ImageSource.gallery), false),
                 const SizedBox(height: 30),
               ],
             ),
           ),
-          // Loading UI အချောသတ်
           if (_isLoading) 
             Container(
               color: Colors.black.withOpacity(0.4), 
@@ -294,8 +283,7 @@ class _DashboardState extends State<Dashboard> {
       ),
     );
   }
-
-  // --- UI Polish: Weather Widget ---
+    // --- UI Polish: Weather Widget ---
   Widget _buildWeatherWidget() {
     return Container(
       margin: const EdgeInsets.symmetric(horizontal: 20, vertical: 10), 
@@ -346,20 +334,16 @@ class _DashboardState extends State<Dashboard> {
       child: SafeArea(
         child: Column(
           children: [
-            // အပေါ်ပိုင်း Header
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 30), 
               width: double.infinity, 
               child: Text("မီနူး (Menu)", style: TextStyle(fontSize: 24, fontWeight: FontWeight.w800, color: Theme.of(context).colorScheme.primary)),
             ),
-            
-            // အလယ်ပိုင်း Scroll လုပ်နိုင်သော နေရာ
             Expanded(
               child: ListView(
                 physics: const BouncingScrollPhysics(),
                 padding: EdgeInsets.zero,
                 children: [
-                  // ၁။ အိမ်ရှိပစ္စည်းစာရင်း (Collapse/Expand)
                   ExpansionTile(
                     leading: const Icon(Icons.inventory_2_rounded),
                     title: const Text("အိမ်ရှိပစ္စည်းစာရင်း", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
@@ -418,34 +402,28 @@ class _DashboardState extends State<Dashboard> {
                       )
                     ],
                   ),
-                  
-                  // ၂။ မှတ်တမ်းများကြည့်မည်
                   ListTile(
                     leading: const Icon(Icons.folder_special_rounded, color: Colors.orange),
                     title: const Text("မှတ်တမ်းများကြည့်မည်", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
                     onTap: () {
-                      Navigator.pop(context); // Menu ကို ပိတ်မည်
+                      Navigator.pop(context); 
                       Navigator.push(context, MaterialPageRoute(builder: (c) => const SmartGallery()));
                     },
                   ),
-
-                  // ၃။ မြို့ရွေးချယ်မည် (Weather အတွက်)
                   ListTile(
                     leading: const Icon(Icons.location_city_rounded, color: Colors.blue),
-                    title: const Text("ရာသီဥတု မြို့ရွေးချယ်မည်", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
+                    title: const Text("ရာသီဥတု မြို့ရွေးမည်", style: TextStyle(fontSize: 16, fontWeight: FontWeight.w600)),
                     contentPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 5),
                     onTap: () {
-                      Navigator.pop(context); // Menu ကို ပိတ်မည်
-                      _showCityManager(); // Dialog ခေါ်မည်
+                      Navigator.pop(context); 
+                      _showCityManager(); 
                     },
                   ),
                 ],
               ),
             ),
-            
             const Divider(height: 1),
-            // အောက်ဆုံး ကြမ်းပြင် (App Version / Secret Door)
             GestureDetector(
               onTap: () {
                 _secretCounter++;
@@ -454,4 +432,124 @@ class _DashboardState extends State<Dashboard> {
               child: Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(vertical: 20),
-                color: Theme.of(context).colorScheme.surfaceContainerHighest
+                color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.3),
+                child: Center(
+                  child: Text("App Version: 1.0.0", style: TextStyle(color: Theme.of(context).colorScheme.onSurfaceVariant, fontWeight: FontWeight.bold)),
+                ),
+              ),
+            )
+          ],
+        ),
+      ),
+    );
+  }
+
+  // --- UI Polish: Minimalist Button ---
+  Widget _minimalButton(String text, IconData icon, VoidCallback onTap, bool isPrimary) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 8),
+      child: SizedBox(
+        width: double.infinity,
+        height: 65,
+        child: ElevatedButton.icon(
+          style: ElevatedButton.styleFrom(
+            backgroundColor: isPrimary ? Theme.of(context).colorScheme.primaryContainer : Theme.of(context).colorScheme.surfaceContainerHighest,
+            foregroundColor: isPrimary ? Theme.of(context).colorScheme.onPrimaryContainer : Theme.of(context).colorScheme.onSurfaceVariant,
+            elevation: 0,
+            shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+          ),
+          icon: Icon(icon, size: 28),
+          label: Text(text, style: const TextStyle(fontSize: 20, fontWeight: FontWeight.w600)),
+          onPressed: onTap,
+        ),
+      ),
+    );
+  }
+
+  // --- City Manager Dialog ---
+  void _showCityManager() {
+    final cityCtrl = TextEditingController();
+    showDialog(
+      context: context,
+      builder: (ctx) {
+        return StatefulBuilder(
+          builder: (context, setModalState) {
+            return AlertDialog(
+              title: const Text("မြို့ ရွေးချယ်ရန်", style: TextStyle(fontWeight: FontWeight.bold)),
+              shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+              content: SizedBox(
+                width: double.maxFinite,
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Row(
+                      children: [
+                        Expanded(child: TextField(
+                          controller: cityCtrl, 
+                          decoration: InputDecoration(
+                            hintText: "City (e.g., Yangon)", 
+                            filled: true,
+                            border: OutlineInputBorder(borderRadius: BorderRadius.circular(12), borderSide: BorderSide.none)
+                          )
+                        )),
+                        const SizedBox(width: 10),
+                        IconButton.filledTonal(
+                          icon: const Icon(Icons.add_rounded),
+                          onPressed: () {
+                            if (cityCtrl.text.isNotEmpty) {
+                              setModalState(() { _cities.add(cityCtrl.text); });
+                              setState(() { _saveCities(); });
+                              cityCtrl.clear();
+                            }
+                          },
+                        )
+                      ],
+                    ),
+                    const SizedBox(height: 15),
+                    Expanded(
+                      child: ListView.builder(
+                        shrinkWrap: true,
+                        itemCount: _cities.length,
+                        itemBuilder: (c, i) {
+                          String city = _cities[i];
+                          return ListTile(
+                            contentPadding: EdgeInsets.zero,
+                            title: Text(city, style: TextStyle(fontWeight: _selectedCity == city ? FontWeight.bold : FontWeight.normal)),
+                            leading: Radio<String>(
+                              value: city,
+                              groupValue: _selectedCity,
+                              activeColor: Theme.of(context).colorScheme.primary,
+                              onChanged: (val) {
+                                setState(() { _selectedCity = val!; _saveCities(); _fetchWeather(); });
+                                setModalState(() {});
+                                Navigator.pop(ctx);
+                              },
+                            ),
+                            trailing: IconButton(
+                              icon: const Icon(Icons.delete_outline_rounded, color: Colors.redAccent),
+                              onPressed: () { setModalState(() { _cities.removeAt(i); }); setState(() { _saveCities(); }); },
+                            ),
+                          );
+                        },
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              actions: [TextButton(onPressed: () => Navigator.pop(ctx), child: const Text("ပိတ်မည်", style: TextStyle(fontWeight: FontWeight.bold)))],
+            );
+          }
+        );
+      }
+    );
+  }
+
+  void _askPassword() {
+    final passCtrl = TextEditingController();
+    showDialog(context: context, builder: (ctx) => AlertDialog(
+      title: const Text("Password"), 
+      content: TextField(controller: passCtrl, obscureText: true), 
+      actions: [TextButton(onPressed: () { if (passCtrl.text == "1500") { Navigator.pop(ctx); Navigator.push(context, MaterialPageRoute(builder: (c) => const SecretDoor())); } }, child: const Text("Confirm"))]
+    ));
+  }
+}
