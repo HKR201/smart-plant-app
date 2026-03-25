@@ -21,10 +21,18 @@ class DBHelper {
     await db.insert('plants', data, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
-  static Future<List<Map<String, dynamic>>> getPlants() async {
+  // OPTIMIZATION: Added limit and offset parameters for database-level pagination
+  // This prevents loading hundreds of rows into memory all at once.
+  static Future<List<Map<String, dynamic>>> getPlants({int limit = 10, int offset = 0}) async {
     final db = await getDB();
-    return db.query('plants', orderBy: "id DESC"); // အသစ်ဆုံးကို အပေါ်ဆုံးက ပြမည်
+    return db.query(
+      'plants', 
+      orderBy: "id DESC",
+      limit: limit,   // တစ်ခါခေါ်လျှင် ဘယ်နှစ်ခုခေါ်မည်နည်း
+      offset: offset  // ဘယ်နေရာကနေ စခေါ်မည်နည်း
+    ); 
   }
+  
 
   // --- အသစ်ထည့်လိုက်သော မှတ်တမ်းဖျက်ရန် Function ---
   static Future<void> deletePlant(int id) async {
