@@ -17,11 +17,18 @@ class DBHelper {
 
   static Future<void> savePlant(Map<String, dynamic> data) async {
     final db = await getDB();
+    // ID အဟောင်းနဲ့ ပြန်ထည့်ရင် (Undo လုပ်ရင်) နေရာဟောင်းမှာပဲ အစားထိုးအောင် replace သုံးထားပါတယ်
     await db.insert('plants', data, conflictAlgorithm: ConflictAlgorithm.replace);
   }
 
   static Future<List<Map<String, dynamic>>> getPlants() async {
     final db = await getDB();
     return db.query('plants', orderBy: "id DESC"); // အသစ်ဆုံးကို အပေါ်ဆုံးက ပြမည်
+  }
+
+  // --- အသစ်ထည့်လိုက်သော မှတ်တမ်းဖျက်ရန် Function ---
+  static Future<void> deletePlant(int id) async {
+    final db = await getDB();
+    await db.delete('plants', where: "id = ?", whereArgs: [id]);
   }
 }
