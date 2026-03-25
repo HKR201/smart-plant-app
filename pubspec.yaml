@@ -10,14 +10,29 @@ dependencies:
     sdk: flutter
   cupertino_icons: ^1.0.8
   http: ^1.2.1
-  provider: ^6.1.2
+  # provider: ကို အသုံးမလိုတော့၍ ဖြုတ်ပစ်လိုက်ပါပြီ
   shared_preferences: ^2.2.3
   sqflite: ^2.3.2
   path: ^1.9.0
   intl: ^0.19.0
   image_picker: ^1.0.7
-  path_provider: ^2.1.2 # Database အတွက် ဖိုင်လမ်းကြောင်းရှာပေးမယ့် ကောင်လေးပါ
+  path_provider: ^2.1.2
+
+dev_dependencies:
+  flutter_test:
+    sdk: flutter
+  # Logo အလိုအလျောက် ပြောင်းပေးမည့် Package
+  flutter_launcher_icons: "^0.13.1"
+
+# --- Logo သတ်မှတ်ခြင်း အပိုင်း ---
+flutter_icons:
+  android: "launcher_icon"
+  ios: false # Android APK အတွက်သာဖြစ်၍ false ဟု ပိတ်ထားလိုက်ပါပြီ
+  image_path: "assets/app_icon.png" # သင့် Logo ကို assets ဖိုင်တွဲထဲ ထည့်ထားပါ
 
 flutter:
   uses-material-design: true
-  
+  # App Icon အတွက် assets ဖိုင်တွဲကို ဖွင့်ပေးထားခြင်းဖြစ်ပါသည်
+  assets:
+    - assets/
+    
