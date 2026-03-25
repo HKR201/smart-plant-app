@@ -11,15 +11,13 @@ class _SecretDoorState extends State<SecretDoor> {
   final _keyCtrl = TextEditingController();
   final _proxyCtrl = TextEditingController();
   final _weatherCtrl = TextEditingController(); 
+  final _modelCtrl = TextEditingController(); // Model Name အတွက် အသစ်
   final _roleCtrl = TextEditingController();
   final _logicCtrl = TextEditingController();
   final _personaCtrl = TextEditingController();
 
   @override 
-  void initState() { 
-    super.initState(); 
-    _load(); 
-  }
+  void initState() { super.initState(); _load(); }
 
   _load() async {
     final prefs = await SharedPreferences.getInstance();
@@ -27,6 +25,8 @@ class _SecretDoorState extends State<SecretDoor> {
       _keyCtrl.text = prefs.getString('api_key') ?? '';
       _proxyCtrl.text = prefs.getString('proxy_url') ?? '';
       _weatherCtrl.text = prefs.getString('weather_api') ?? '';
+      // မူလပုံသေအနေနဲ့ gemini-2.5-flash ကို ထည့်ထားပေးမည်
+      _modelCtrl.text = prefs.getString('model_name') ?? 'gemini-2.5-flash'; 
       _roleCtrl.text = prefs.getString('role_box') ?? 'Expert Plant Assistant';
       _logicCtrl.text = prefs.getString('logic_box') ?? 'Use Home Inventory items';
       _personaCtrl.text = prefs.getString('persona_box') ?? 'Polite Burmese tone';
@@ -38,6 +38,7 @@ class _SecretDoorState extends State<SecretDoor> {
     await prefs.setString('api_key', _keyCtrl.text);
     await prefs.setString('proxy_url', _proxyCtrl.text);
     await prefs.setString('weather_api', _weatherCtrl.text);
+    await prefs.setString('model_name', _modelCtrl.text); // Model ကို Save မည်
     await prefs.setString('role_box', _roleCtrl.text);
     await prefs.setString('logic_box', _logicCtrl.text);
     await prefs.setString('persona_box', _personaCtrl.text);
@@ -51,9 +52,11 @@ class _SecretDoorState extends State<SecretDoor> {
       body: ListView(
         padding: const EdgeInsets.all(20), 
         children: [
-          _in("Gemini Key", _keyCtrl), 
+          _in("Gemini Key", _keyCtrl, obscure: true), // လုံခြုံရေးအရ Key ကို ဖုံးထားမည်
           _in("Google Script Proxy URL", _proxyCtrl), 
-          _in("OpenWeather API Key", _weatherCtrl), 
+          _in("OpenWeather API Key", _weatherCtrl, obscure: true),
+          // --- Model Name Box အသစ် ---
+          _in("AI Model Name (e.g., gemini-2.5-flash)", _modelCtrl), 
           const Divider(height: 40),
           _in("Role", _roleCtrl), 
           _in("Logic", _logicCtrl), 
@@ -69,11 +72,12 @@ class _SecretDoorState extends State<SecretDoor> {
     );
   }
 
-  Widget _in(String l, TextEditingController c) {
+  Widget _in(String l, TextEditingController c, {bool obscure = false}) {
     return Padding(
       padding: const EdgeInsets.only(bottom: 15), 
       child: TextField(
         controller: c, 
+        obscureText: obscure,
         decoration: InputDecoration(labelText: l, border: const OutlineInputBorder())
       )
     );
